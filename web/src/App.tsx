@@ -1,61 +1,73 @@
-import { Icon24LightbulbOutline } from '@vkontakte/icons';
 import {
   AppRoot,
-  Caption,
-  ColorSchemeProvider,
-  FixedLayout,
+  Box,
+  Button,
+  Div,
   Flex,
-  Headline,
-  Link,
+  FormItem,
+  FormLayoutGroup,
+  Input,
+  Select,
+  SplitCol,
+  SplitLayout,
   Title,
-} from '@vkontakte/vkui';
-import { useColorSchemeSwitcher } from './ColorSchemeSwitcher';
-import styles from './App.module.css';
+} from "@vkontakte/vkui";
 
-function Copyright() {
-  return (
-    <Caption>
-      {'Авторские права © '}
-      <Link color="inherit" href="https://vkui.io/">
-        Ваш сайт
-      </Link>{' '}
-      {new Date().getFullYear()}.
-    </Caption>
-  );
-}
+import styles from "./App.module.css";
 
-function ProTip() {
-  return (
-    <Headline inline>
-      <Icon24LightbulbOutline className={styles.tipIcon} />
-      {'Совет: посмотрите другие '}
-      <Link href="https://github.com/VKCOM/VKUI/tree/master/examples">шаблоны</Link>
-      {' в документации VKUI.'}
-    </Headline>
-  );
-}
+const vpnProtocols = [
+  {
+    value: "outline",
+    label: "Outline",
+  },
+  {
+    value: "openconnect",
+    label: "OpenConnect",
+  },
+  {
+    value: "xray",
+    label: "XRay",
+  },
+];
 
 export default function App() {
-  const [colorScheme, colorSchemeSwitcher] = useColorSchemeSwitcher();
-
   return (
-    <ColorSchemeProvider value={colorScheme}>
-      <AppRoot disableSettingVKUIClassesInRuntime>
-        <Flex direction="column" justify="center" className={styles.layout}>
-          <FixedLayout vertical="top">
-            <Flex justify="end" className={styles.header}>
-              <Flex.Item>{colorSchemeSwitcher}</Flex.Item>
-            </Flex>
-          </FixedLayout>
-          <Flex direction="column" justify="center" align="center" gap={16}>
-            <Title level="1" Component="h1">
-              VKUI Vite.js пример на TypeScript
-            </Title>
-            <ProTip />
-            <Copyright />
+    <AppRoot disableSettingVKUIClassesInRuntime>
+      <SplitLayout>
+        <SplitCol stretchedOnMobile autoSpaced>
+          <Box padding="2xl">
+            <Title>VPNator</Title>
+          </Box>
+          <Flex className={styles.form} direction="column">
+            <FormLayoutGroup mode="vertical">
+              <FormItem htmlFor="address" top="Адрес">
+                <Input name="address" id="address" />
+              </FormItem>
+              <FormItem htmlFor="protocol" top="Протокол">
+                <Select
+                  options={vpnProtocols}
+                  defaultValue={null}
+                  name="protocol"
+                  id="protocol"
+                />
+              </FormItem>
+              <FormLayoutGroup mode="horizontal">
+                <FormItem htmlFor="username" top="Имя пользователя">
+                  <Input name="username" id="username" />
+                </FormItem>
+                <FormItem htmlFor="password" top="Пароль">
+                  <Input name="password" id="password" type="password" />
+                </FormItem>
+              </FormLayoutGroup>
+            </FormLayoutGroup>
+            <Box padding="2xl">
+              <Button type="submit" size="m">
+                Настроить
+              </Button>
+            </Box>
           </Flex>
-        </Flex>
-      </AppRoot>
-    </ColorSchemeProvider>
+        </SplitCol>
+      </SplitLayout>
+    </AppRoot>
   );
 }
