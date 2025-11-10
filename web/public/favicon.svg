@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="vpnator-gradient" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3a8dde"/>
+      <stop offset="100%" stop-color="#1a2a6c"/>
+    </linearGradient>
+  </defs>
+  <g>
+    <path d="M16 3 L28 8 V16 C28 23 16 29 16 29 C16 29 4 23 4 16 V8 Z" fill="url(#vpnator-gradient)" stroke="#fff" stroke-width="1"/>
+    <path d="M10 12 L16 22 L22 12" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
