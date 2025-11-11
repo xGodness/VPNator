@@ -3,6 +3,7 @@ import {
   Panel,
   PanelHeader,
   Root,
+  Spacing,
   SplitCol,
   SplitLayout,
   usePlatform,
@@ -61,7 +62,8 @@ export default function App() {
                   vpnProtocols={vpnProtocols}
                   onSubmit={onSettingsFormSubmit}
                 />
-                <ServerMessages messages={messages} />
+                <Spacing size="m" />
+                {messages.length > 0 && <ServerMessages messages={messages} />}
               </Panel>
             </View>
           </Root>
