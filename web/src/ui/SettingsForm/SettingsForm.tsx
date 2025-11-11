@@ -54,14 +54,6 @@ export const SettingsForm = ({ vpnProtocols, onSubmit }: SettingsFormProps) => {
       </Box>
       <Flex className={styles.form} direction="column">
         <FormLayoutGroup mode="vertical">
-          <FormItem htmlFor="address" top="Адрес">
-            <Input
-              name="address"
-              id="address"
-              value={remoteAddress}
-              onChange={onRemoteAddressChange}
-            />
-          </FormItem>
           <FormItem htmlFor="protocol" top="Протокол">
             <Select
               options={vpnProtocols}
@@ -69,6 +61,14 @@ export const SettingsForm = ({ vpnProtocols, onSubmit }: SettingsFormProps) => {
               onChange={onProtocolChange}
               name="protocol"
               id="protocol"
+            />
+          </FormItem>
+          <FormItem htmlFor="address" top="Адрес">
+            <Input
+              name="address"
+              id="address"
+              value={remoteAddress}
+              onChange={onRemoteAddressChange}
             />
           </FormItem>
           <FormLayoutGroup mode="horizontal">
