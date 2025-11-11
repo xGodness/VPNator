@@ -7,4 +7,5 @@ export default defineConfig({
   resolve: {
     alias: [{ find: /^@vkontakte\/vkui$/, replacement: '@vkontakte/vkui/dist/cssm' }],
   },
+  base: '/VPNator/',
 });
