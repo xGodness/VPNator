@@ -16,14 +16,14 @@ SERVER_KEY="${OCSERV_DIR}/server-key.pem"
 SERVER_CERT="${OCSERV_DIR}/server-cert.pem"
 OCSERV_SERVICE="/etc/systemd/system/ocserv.service"
 
-# Режим запуска: systemd (по умолчанию) или docker (совместимость со старым скриптом)
+# Режим запуска: systemd (по умолчанию) или docker
 RUN_MODE="${RUN_MODE:-systemd}"
 
 # Для docker-режима (совместимость с твоей версией)
 OCSERV_SCRIPT_PATH="/usr/local/sbin/ocserv.sh"
 LOG_FILE="/var/log/ocserv-docker.log"
 
-# Сетевые параметры для VPN-пула/маршрутизации (под твой конфиг)
+# Сетевые параметры для VPN-пула/маршрутизации
 VPN_SUBNET="10.10.10.0/24"
 WAN_IF="${WAN_IF:-$(ip -4 route ls default 2>/dev/null | awk '/default/ {print $5; exit}')}"
 WAN_IF="${WAN_IF:-eth0}"
@@ -123,6 +123,7 @@ build_and_test() {
   info "Собираю (все ядра)…"
   make -j"$(nproc)"
   info "Запускаю тесты (возможные падения haproxy-auth и test-oidc допустимы)…"
+  # Тесты на собранный ocserv. Коммент, так как идут около часа.
   # if make check; then
   #   log "Тесты завершились успешно."
   # else
@@ -187,7 +188,6 @@ write_ocserv_conf() {
     cp -a "$OCSERV_CONF" "${OCSERV_CONF}.bak.$(date +%Y%m%d%H%M%S)"
   fi
   cat > "$OCSERV_CONF" <<'EOF'
-#auth = "certificate"
 auth = "plain[passwd=/etc/ocserv/ocpasswd]"
 tcp-port = 443
 socket-file = /run/ocserv-socket
@@ -282,7 +282,7 @@ iptables_rule_present() {
 setup_iptables_nat() {
   info "Добавляю iptables-правила для NAT/форвардинга (WAN_IF=${WAN_IF})…"
 
-  # Разрешаем форвард трафика VPN -> WAN и WAN -> VPN (as is, как у тебя)
+  # Разрешаем форвард трафика VPN -> WAN и WAN -> VPN
   iptables_rule_present FORWARD -s "$VPN_SUBNET" -j ACCEPT || iptables -A FORWARD -s "$VPN_SUBNET" -j ACCEPT
   iptables_rule_present FORWARD -d "$VPN_SUBNET" -j ACCEPT || iptables -A FORWARD -d "$VPN_SUBNET" -j ACCEPT
 
