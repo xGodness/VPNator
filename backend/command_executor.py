@@ -26,18 +26,20 @@ class SSHConfig:
 
 @dataclass
 class ExecutionResult:
+    code: int
     stdout: str
     stderr: str
 
 
 class ExecutionException(Exception):
-    def __init__(self, message="Something went wrong"):
-        self.message = message
+    def __init__(self, message="Что-то пошло не так"):
+        self.message = "ssh | " + message
         super().__init__(self.message)
 
 
 class CommandExecutor:
     def __init__(self, config: SSHConfig):
+        logger.info(config)
         self.host = config.host
         self.username = config.username
         self.password = config.password
@@ -54,15 +56,17 @@ class CommandExecutor:
                                 allow_agent=False,
                                 look_for_keys=False)
         except AuthenticationException as e:
-            _handle_exception(e, "SSH authentication failed: check credentials")
+            _handle_exception(e, "Ошибка аутентификации: проверьте введенные данные")
         except SSHException as e:
-            _handle_exception(e, "SSH connection error")
+            _handle_exception(e, "Ошибка подключения")
         except Exception as e:
             _handle_exception(e)
 
     def execute(self, command: str, environment: Mapping[str, str] | None = None) -> ExecutionResult:
+        logger.info(f"executing: " + command)
         _, stdout_ch, stderr_ch = self.client.exec_command(command=command, environment=environment)
-        return ExecutionResult(stdout=stdout_ch.read().decode(), stderr=stderr_ch.read().decode())
+        code = stdout_ch.channel.recv_exit_status()
+        return ExecutionResult(code=int(code), stdout=stdout_ch.read().decode(), stderr=stderr_ch.read().decode())
 
     def shutdown(self) -> None:
         self.client.close()
