@@ -19,7 +19,7 @@ OCSERV_SERVICE="/etc/systemd/system/ocserv.service"
 # Режим запуска: systemd (по умолчанию) или docker
 RUN_MODE="${RUN_MODE:-systemd}"
 
-# Для docker-режима (совместимость с твоей версией)
+# Для docker-режима
 OCSERV_SCRIPT_PATH="/usr/local/sbin/ocserv.sh"
 LOG_FILE="/var/log/ocserv-docker.log"
 
