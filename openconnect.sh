@@ -89,7 +89,7 @@ install_build_deps() {
     freeradius libfreeradius-dev
     curl ca-certificates xz-utils pkg-config make
     iptables iptables-persistent # для NAT и сохранения правил
-    ssmtp || true
+    ssmtp
   )
   # игнорируем возможные мелкие конфликты отдельных пакетов
   apt-get install -y "${pkgs[@]}" || true
@@ -249,9 +249,9 @@ ExecStart=${ocbin} -c ${OCSERV_CONF} --foreground
 Restart=on-failure
 RestartSec=3
 User=root
-CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
-AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
-NoNewPrivileges=true
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_SETUID CAP_SETGID
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_SETUID CAP_SETGID
+NoNewPrivileges=false
 LimitNOFILE=65536
 
 [Install]
