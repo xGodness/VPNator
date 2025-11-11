@@ -19,10 +19,10 @@ const Message = ({ text }: { text: string }) => {
 export const ServerMessages = ({ messages }: ServerMessagesProps) => {
   return (
     <Card mode="shadow">
-      <Box padding="m">
+      <Box padding="2xl">
         <Title level="2">Ход выполнения</Title>
       </Box>
-      <Box padding="m">
+      <Box padding="2xl">
         <Flex direction="column" gap="m">
           {messages.map((message) => (
             <Message key={message} text={message} />
