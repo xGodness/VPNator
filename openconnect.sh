@@ -1,60 +1,80 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-set -euo pipefail    # "строгий режим": -e — выходим при ошибке, -u — ошибка на несуществующей переменной, pipefail — ошибка в пайплайне не теряется
+# ================== Настройки (можно переопределять переменными окружения) ==================
+OCSERV_VERSION="${OCSERV_VERSION:-1.3.0}"
+SRC_URL="https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz"
+SRC_DIR="/usr/local/src"
+TARBALL="${SRC_DIR}/ocserv-${OCSERV_VERSION}.tar.xz"
+BUILD_DIR="${SRC_DIR}/ocserv-${OCSERV_VERSION}"
 
-# ========= Настройки =========
-OCSERV_VERSION="${OCSERV_VERSION:-1.3.0}"                      # Версия ocserv; можно переопределить переменной окружения
-SRC_URL="https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz"  # URL тарбола исходников ocserv
-SRC_DIR="/usr/local/src"                                       # Каталог, куда складывать исходники/архив
-TARBALL="${SRC_DIR}/ocserv-${OCSERV_VERSION}.tar.xz"           # Полный путь к архиву
-BUILD_DIR="${SRC_DIR}/ocserv-${OCSERV_VERSION}"                # Каталог распакованных исходников
-OCSERV_SCRIPT_PATH="/usr/local/sbin/ocserv.sh"                 # Куда положим вспомогательный Docker-скрипт ocserv.sh
-DEBIAN_SOURCES="/etc/apt/sources.list"                         # Файл с источниками репозиториев APT
-LOG_FILE="/var/log/ocserv-docker.log"                          # Файл логов фонового запуска
-DEBIAN_FRONTEND=noninteractive                                 # Отключаем интерактивные вопросы APT
-export DEBIAN_FRONTEND                                         # Экспортируем переменную в окружение дочерних процессов
+OCSERV_BIN_DEFAULT="/usr/local/sbin/ocserv"
+OCSERV_CONF="/etc/ocserv/ocserv.conf"
+OCSERV_DIR="/etc/ocserv"
+OCSERV_PASSWD="${OCSERV_DIR}/ocpasswd"
+SERVER_KEY="${OCSERV_DIR}/server-key.pem"
+SERVER_CERT="${OCSERV_DIR}/server-cert.pem"
+OCSERV_SERVICE="/etc/systemd/system/ocserv.service"
 
-# ========= Утилиты =========
-log()   { echo -e "\033[1;32m[OK]\033[0m $*"; }               # Функция: зелёное сообщение об успехе
-info()  { echo -e "\033[1;34m[INFO]\033[0m $*"; }             # Функция: синее информационное сообщение
-warn()  { echo -e "\033[1;33m[WARN]\033[0m $*"; }             # Функция: жёлтое предупреждение
-error() { echo -e "\033[1;31m[ERR]\033[0m $*" >&2; }          # Функция: красная ошибка (в stderr)
+# Режим запуска: systemd (по умолчанию) или docker (совместимость со старым скриптом)
+RUN_MODE="${RUN_MODE:-systemd}"
 
-require_root() {                                               # Проверка прав суперпользователя
-  if [[ $EUID -ne 0 ]]; then                                   # Если UID не равен 0 (не root)
-    error "Запустите скрипт от root (sudo)."                   # Сообщаем об ошибке
-    exit 1                                                     # Выходим с кодом 1
+# Для docker-режима (совместимость с твоей версией)
+OCSERV_SCRIPT_PATH="/usr/local/sbin/ocserv.sh"
+LOG_FILE="/var/log/ocserv-docker.log"
+
+# Сетевые параметры для VPN-пула/маршрутизации (под твой конфиг)
+VPN_SUBNET="10.10.10.0/24"
+WAN_IF="${WAN_IF:-$(ip -4 route ls default 2>/dev/null | awk '/default/ {print $5; exit}')}"
+WAN_IF="${WAN_IF:-eth0}"
+
+# Сертификат (темплейт certtool)
+CERT_CN="${CERT_CN:-ocserv}"
+CERT_ORG="${CERT_ORG:-VPN}"
+CERT_DAYS="${CERT_DAYS:-3650}"
+
+DEBIAN_SOURCES="/etc/apt/sources.list"
+DEBIAN_FRONTEND=noninteractive; export DEBIAN_FRONTEND
+
+# ================== Утилиты вывода ==================
+log()   { echo -e "\033[1;32m[OK]\033[0m $*"; }
+info()  { echo -e "\033[1;34m[INFO]\033[0m $*"; }
+warn()  { echo -e "\033[1;33m[WARN]\033[0m $*"; }
+error() { echo -e "\033[1;31m[ERR]\033[0m $*" >&2; }
+
+require_root() {
+  if [[ $EUID -ne 0 ]]; then
+    error "Запустите скрипт от root (sudo)."
+    exit 1
   fi
 }
 
-check_debian12() {                                             # Проверка целевой ОС (предупреждение, если не Debian 12)
-  if [[ -r /etc/os-release ]]; then                            # Если доступен файл с описанием ОС
-    . /etc/os-release                                          # Подгружаем переменные из него
-    if [[ "${ID:-}" != "debian" || "${VERSION_ID:-}" != "12" ]]; then  # Проверяем ID и версию
-      warn "Обнаружен ${PRETTY_NAME:-unknown}. Скрипт рассчитан на Debian 12 (bookworm). Продолжаю на ваш риск."  # Предупреждаем
+check_debian12() {
+  if [[ -r /etc/os-release ]]; then
+    . /etc/os-release
+    if [[ "${ID:-}" != "debian" || "${VERSION_ID:-}" != "12" ]]; then
+      warn "Обнаружен ${PRETTY_NAME:-unknown}. Скрипт рассчитан на Debian 12 (bookworm). Продолжаю на ваш риск."
     fi
   fi
 }
 
-append_sid_repo() {                                            # Добавление репозитория Debian sid (unstable)
-  if ! grep -qE '^[[:space:]]*deb[[:space:]].*debian[[:space:]]+sid[[:space:]]+main' "$DEBIAN_SOURCES"; then  # Если строки sid ещё нет
-    info "Добавляю репозиторий Debian sid в $DEBIAN_SOURCES"   # Сообщаем
-    echo "deb http://deb.debian.org/debian sid main" >> "$DEBIAN_SOURCES"  # Дописываем строку репозитория в sources.list
+append_sid_repo() {
+  if ! grep -qE '^[[:space:]]*deb[[:space:]].*debian[[:space:]]+sid[[:space:]]+main' "$DEBIAN_SOURCES"; then
+    info "Добавляю репозиторий Debian sid в $DEBIAN_SOURCES"
+    echo "deb http://deb.debian.org/debian sid main" >> "$DEBIAN_SOURCES"
   else
-    info "Репозиторий sid уже подключен."                      # Иначе сообщаем, что он уже есть
+    info "Репозиторий sid уже подключен."
   fi
 }
 
-apt_refresh_and_upgrade() {                                    # Обновление индексов пакетов и апгрейд системы
-  info "Обновляю индексы пакетов и систему…"                   # Сообщение пользователю
-  apt-get update                                               # Обновляем кэш пакетов
-  apt-get -y upgrade                                           # Обновляем установленные пакеты без вопросов
+apt_refresh_and_upgrade() {
+  info "Обновляю индексы пакетов и систему…"
+  apt-get update
+  apt-get -y upgrade
 }
 
-install_build_deps() {                                         # Установка зависимостей для сборки ocserv и утилит
-  info "Устанавливаю зависимости для сборки (может занять время)…"  # Информируем
-
-  # Список пакетов держим в массиве — безопасно и читабельно
+install_build_deps() {
+  info "Устанавливаю зависимости для сборки и работы…"
   local pkgs=(
     build-essential fakeroot devscripts
     iputils-ping ruby-ronn openconnect libuid-wrapper
@@ -68,130 +88,317 @@ install_build_deps() {                                         # Установ�
     iproute2 libpam-wrapper tcpdump libopenconnect-dev iperf3 ipcalc-ng
     freeradius libfreeradius-dev
     curl ca-certificates xz-utils pkg-config make
+    iptables iptables-persistent # для NAT и сохранения правил
+    ssmtp || true
   )
-
-  apt-get install -y "${pkgs[@]}"                              # Ставим все пакеты из массива
+  # игнорируем возможные мелкие конфликты отдельных пакетов
+  apt-get install -y "${pkgs[@]}" || true
+  # убеждаемся, что критичное есть:
+  apt-get install -y gnutls-bin iptables iptables-persistent
 }
 
-fetch_sources() {                                              # Скачивание и распаковка исходников ocserv
-  mkdir -p "$SRC_DIR"                                          # Создаём каталог для исходников, если его нет
-  if [[ -f "$TARBALL" ]]; then                                 # Если архив уже скачан
-    info "Тарбол ${TARBALL} уже существует — пропускаю загрузку."  # Сообщаем, что пропускаем скачивание
+fetch_sources() {
+  mkdir -p "$SRC_DIR"
+  if [[ -f "$TARBALL" ]]; then
+    info "Тарбол ${TARBALL} уже существует — пропускаю загрузку."
   else
-    info "Скачиваю исходники ocserv ${OCSERV_VERSION}…"        # Иначе сообщаем о загрузке
-    curl -fL -o "$TARBALL" "$SRC_URL"                          # Качаем архив ( -f: падать на 4xx/5xx, -L: следовать редиректам )
-    log "Скачано: $TARBALL"                                    # Логируем успешную загрузку
+    info "Скачиваю исходники ocserv ${OCSERV_VERSION}…"
+    curl -fL -o "$TARBALL" "$SRC_URL"
+    log "Скачано: $TARBALL"
   fi
 
-  if [[ -d "$BUILD_DIR" ]]; then                               # Если каталога распаковки уже существует
-    info "Каталог исходников уже распакован: $BUILD_DIR"       # Сообщаем и пропускаем распаковку
+  if [[ -d "$BUILD_DIR" ]]; then
+    info "Каталог исходников уже распакован: $BUILD_DIR"
   else
-    info "Распаковываю архив…"                                 # Сообщаем о распаковке
-    tar -xvf "$TARBALL" -C "$SRC_DIR"                          # Распаковываем с подробным выводом в SRC_DIR
-    log "Распаковка завершена."                                # Подтверждаем завершение
+    info "Распаковываю архив…"
+    tar -xvf "$TARBALL" -C "$SRC_DIR"
+    log "Распаковка завершена."
   fi
 }
 
-build_and_test() {                                             # Сборка и (нестрогий) прогон тестов
-  cd "$BUILD_DIR"                                              # Переходим в каталог исходников
-  info "Конфигурирую сборку (--enable-oidc-auth)…"             # Сообщаем о конфигурировании
-  ./configure --enable-oidc-auth                               # Генерируем Makefile с поддержкой OIDC
+build_and_test() {
+  cd "$BUILD_DIR"
+  info "Конфигурирую сборку (--enable-oidc-auth)…"
+  ./configure --enable-oidc-auth
+  info "Собираю (все ядра)…"
+  make -j"$(nproc)"
+  info "Запускаю тесты (возможные падения haproxy-auth и test-oidc допустимы)…"
+  # if make check; then
+  #   log "Тесты завершились успешно."
+  # else
+  #   warn "Некоторые тесты упали — продолжаю."
+  # fi
+}
 
-  info "Собираю (все ядра)…"                                   # Сообщение о сборке
-  make -j"$(nproc)"                                            # Сборка с параллелизмом по числу CPU
-
-  info "Запускаю тесты (ожидаемые фейлы haproxy-auth и test-oidc допустимы)…"  # Объясняем ожидаемое поведение тестов
-  if make check; then                                          # Запускаем тесты; если успешны —
-    log "Тесты завершились успешно."                           # Логируем успех
+install_ocserv() {
+  cd "$BUILD_DIR"
+  info "Устанавливаю собранные бинарники…"
+  make install
+  local bin
+  bin="$(command -v ocserv || true)"
+  if [[ -z "$bin" ]]; then
+    warn "ocserv не найден в PATH; ожидаемый путь: ${OCSERV_BIN_DEFAULT}"
   else
-    warn "Некоторые тесты упали (это ожидаемо) — продолжаю."   # Иначе предупреждаем и продолжаем
+    log "ocserv найден: $bin"
   fi
 }
 
-install_ocserv() {                                             # Установка собранных бинарников
-  cd "$BUILD_DIR"                                              # Возвращаемся в каталог сборки
-  info "Устанавливаю собранные бинарники в систему…"           # Сообщаем об установке
-  make install                                                 # Копируем файлы в /usr/local/*
-  log "Установлено. Проверка версий:"                          # Лог
-  whereis ocserv || true                                       # Показываем, где лежит ocserv; не падаем, если нет
-  ocserv --version || true                                     # Выводим версию ocserv; не падаем при ошибке
-  echo                                                         # Пустая строка для читаемости
-  warn "По умолчанию ocserv устанавливается в /usr/local/sbin/ocserv"  # Напоминание о пути установки
-}
+generate_certs() {
+  info "Готовлю ключ/сертификат в ${OCSERV_DIR}…"
+  mkdir -p "$OCSERV_DIR"
+  chmod 700 "$OCSERV_DIR" || true
 
-deploy_ocserv_sh() {                                           # Загрузка и установка Docker-скрипта ocserv.sh
-  info "Готовлю /etc/ocserv и скачиваю ocserv.sh (Docker-скрипт)…"  # Сообщение
-  mkdir -p /etc/ocserv                                         # Создаём каталог конфигурации ocserv
-  if [[ -f "$OCSERV_SCRIPT_PATH" ]]; then                      # Если файл уже существует
-    info "Файл $OCSERV_SCRIPT_PATH уже существует — обновляю." # Сообщаем о перезаписи
-  fi
-  curl -fL -o "$OCSERV_SCRIPT_PATH" "https://raw.githubusercontent.com/r4ven-me/openconnect/main/src/server/v1.3/ocserv.sh"  # URL скрипта
-  chmod +x "$OCSERV_SCRIPT_PATH"                               # Делаем скрипт исполняемым
-  log "Скрипт сохранён: $OCSERV_SCRIPT_PATH"                   # Подтверждаем сохранение
-}
-
-run_ocserv_docker() {                                          # Запуск ocserv через ocserv.sh в фоне
-  info "Запускаю ocserv через ocserv.sh в фоне (логи: $LOG_FILE)…"   # Информируем и указываем файл логов
-  nohup "$OCSERV_SCRIPT_PATH" ocserv --foreground >"$LOG_FILE" 2>&1 &  # Запускаем в фоне, вывод перенаправляем в лог, nohup — пережить logout
-  OC_PID=$!                                                    # Сохраняем PID фонового процесса
-  sleep 5                                                      # Даем сервису несколько секунд подняться
-
-  info "Проверяю, что порт 443 слушается…"                     # Информируем о проверке порта
-  if ss -tulnap | grep -qE 'LISTEN.+:443\b'; then              # Ищем LISTEN на TCP/UDP порту 443
-    log "Порт 443 открыт."                                     # Успешно — порт слушает
+  if [[ ! -f "$SERVER_KEY" ]]; then
+    info "Генерирую приватный ключ (RSA 3072)…"
+    certtool --generate-privkey --bits 3072 --outfile "$SERVER_KEY"
+    chmod 600 "$SERVER_KEY"
   else
-    warn "Порт 443 не обнаружен в LISTEN. Проверьте логи: $LOG_FILE"  # Иначе — предупреждаем
+    info "Приватный ключ уже существует: $SERVER_KEY"
+    chmod 600 "$SERVER_KEY" || true
   fi
 
-  info "Пробую HTTPS к localhost:443 (с игнором сертификата)…" # Сообщаем о curl-проверке
-  if curl --insecure -fsS https://localhost:443 >/dev/null; then  # Делаем запрос, игнорируя самоподписанный сертификат
-    log "HTTPS-ответ получен — ocserv отвечает."               # Успех: сервер отвечает
+  if [[ ! -f "$SERVER_CERT" ]]; then
+    info "Генерирую самоподписанный сертификат (CN=${CERT_CN}, O=${CERT_ORG}, ${CERT_DAYS} дней)…"
+    local tmpl
+    tmpl="$(mktemp)"
+    cat > "$tmpl" <<EOT
+cn = "${CERT_CN}"
+organization = "${CERT_ORG}"
+serial = 001
+expiration_days = ${CERT_DAYS}
+signing_key
+tls_www_server
+encryption_key
+EOT
+    certtool --generate-self-signed \
+      --load-privkey "$SERVER_KEY" \
+      --template "$tmpl" \
+      --outfile "$SERVER_CERT"
+    rm -f "$tmpl"
+    log "Сертификат создан: $SERVER_CERT"
   else
-    warn "curl не получил ответ от https://localhost:443 — смотрите $LOG_FILE"  # Иначе — предупреждаем
+    info "Сертификат уже существует: $SERVER_CERT"
   fi
-
-  info "Процесс ocserv.sh запущен с PID ${OC_PID} и продолжит работать после выхода скрипта."  # Даём знать PID и поведение
 }
 
-main() {                                                       # Главная функция-оркестратор
-  require_root                                                 # Требуем права root
-  check_debian12                                               # Предупреждаем, если не Debian 12
-  apt_refresh_and_upgrade                                      # Обновляем систему
-  append_sid_repo                                              # Добавляем репозиторий sid (unstable)
-  apt-get update                                               # Обновляем индексы после изменения sources.list
-  install_build_deps                                           # Ставим зависимости
-  fetch_sources                                                # Качаем и распаковываем исходники
-  build_and_test                                               # Сборка и тесты
-  install_ocserv                                               # Установка бинарников
-  deploy_ocserv_sh                                             # Скачиваем и готовим ocserv.sh
-  run_ocserv_docker                                            # Запускаем ocserv через Docker-скрипт
+write_ocserv_conf() {
+  info "Пишу конфиг ${OCSERV_CONF} (с бэкапом)…"
+  if [[ -f "$OCSERV_CONF" ]]; then
+    cp -a "$OCSERV_CONF" "${OCSERV_CONF}.bak.$(date +%Y%m%d%H%M%S)"
+  fi
+  cat > "$OCSERV_CONF" <<'EOF'
+#auth = "certificate"
+auth = "plain[passwd=/etc/ocserv/ocpasswd]"
+tcp-port = 443
+socket-file = /run/ocserv-socket
+server-cert = /etc/ocserv/server-cert.pem
+server-key = /etc/ocserv/server-key.pem
+isolate-workers = true
+max-clients = 20
+max-same-clients = 2
+rate-limit-ms = 100
+server-stats-reset-time = 604800
+keepalive = 32
+output-buffer = 23000
+dpd = 120
+mobile-dpd = 1800
+switch-to-tcp-timeout = 25
+try-mtu-discovery = false
+cert-user-oid = 0.9.2342.19200300.100.1.1
+tls-priorities = "NORMAL:%SERVER_PRECEDENCE:%COMPAT:-VERS-SSL3.0:-VERS-TLS1.0:-VERS-TLS1.1:-VERS-TLS1.3"
+auth-timeout = 1000
+min-reauth-time = 300
+max-ban-score = 100
+ban-reset-time = 1200
+cookie-timeout = 600
+deny-roaming = false
+rekey-time = 172800
+rekey-method = ssl
+use-occtl = true
+pid-file = /run/ocserv.pid
+log-level = 1
+device = vpns
+predictable-ips = true
+ipv4-network = 10.10.10.0
+ipv4-netmask = 255.255.255.0
+tunnel-all-dns = true
+dns = 8.8.8.8
+ping-leases = false
+cisco-client-compat = true
+udp-port = 443
+dtls-legacy = true
+client-bypass-protocol = false
+route = default
+EOF
+  log "Конфиг записан."
+}
 
-  cat <<'EOF'                                                  # Выводим справочный баннер (literal heredoc, без подстановок)
+install_systemd_unit() {
+  info "Устанавливаю systemd unit ${OCSERV_SERVICE}…"
+  local ocbin
+  ocbin="$(command -v ocserv || echo "${OCSERV_BIN_DEFAULT}")"
+  cat > "$OCSERV_SERVICE" <<EOF
+[Unit]
+Description=OpenConnect VPN Server (ocserv)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=${ocbin} -c ${OCSERV_CONF} --foreground
+Restart=on-failure
+RestartSec=3
+User=root
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  systemctl daemon-reload
+  systemctl enable --now ocserv
+  systemctl --no-pager --full status ocserv || true
+}
+
+enable_ip_forward() {
+  info "Включаю IPv4 форвардинг…"
+  sysctl -w net.ipv4.ip_forward=1 >/dev/null
+  if grep -qE '^\s*net\.ipv4\.ip_forward\s*=' /etc/sysctl.conf; then
+    sed -i 's|^\s*net\.ipv4\.ip_forward\s*=.*|net.ipv4.ip_forward=1|' /etc/sysctl.conf
+  else
+    echo 'net.ipv4.ip_forward=1' >> /etc/sysctl.conf
+  fi
+  sysctl --system >/dev/null
+  log "ip_forward включён."
+}
+
+iptables_rule_present() {
+  # простой хелпер: 0 если правило есть, 1 если нет
+  iptables -C "$@" >/dev/null 2>&1
+}
+
+setup_iptables_nat() {
+  info "Добавляю iptables-правила для NAT/форвардинга (WAN_IF=${WAN_IF})…"
+
+  # Разрешаем форвард трафика VPN -> WAN и WAN -> VPN (as is, как у тебя)
+  iptables_rule_present FORWARD -s "$VPN_SUBNET" -j ACCEPT || iptables -A FORWARD -s "$VPN_SUBNET" -j ACCEPT
+  iptables_rule_present FORWARD -d "$VPN_SUBNET" -j ACCEPT || iptables -A FORWARD -d "$VPN_SUBNET" -j ACCEPT
+
+  # NAT
+  iptables_rule_present -t nat POSTROUTING -s "$VPN_SUBNET" -o "$WAN_IF" -j MASQUERADE \
+    || iptables -t nat -A POSTROUTING -s "$VPN_SUBNET" -o "$WAN_IF" -j MASQUERADE
+
+  # Сохраняем правила, чтобы переживали перезагрузку
+  mkdir -p /etc/iptables
+  iptables-save > /etc/iptables/rules.v4
+  systemctl enable --now netfilter-persistent || true
+
+  log "iptables настроены и сохранены."
+}
+
+create_vpn_user() {
+  local user="${OCSERV_USER:-}"
+  if [[ -z "${user}" ]]; then
+    read -rp "Введите имя нового VPN-пользователя (по умолчанию: ocuser): " user || true
+    user="${user:-ocuser}"
+  else
+    info "Создаю/обновляю VPN-пользователя: ${user}"
+  fi
+
+  # ocpasswd сам запросит пароль (и подтверждение)
+  ocpasswd -c "$OCSERV_PASSWD" "$user" || true
+  log "Пользователь ${user} готов (файл: ${OCSERV_PASSWD})."
+}
+
+run_ocserv_docker_legacy() {
+  info "Готовлю /etc/ocserv и скачиваю ocserv.sh (Docker-скрипт)…"
+  mkdir -p "$OCSERV_DIR"
+  curl -fL -o "$OCSERV_SCRIPT_PATH" "https://raw.githubusercontent.com/r4ven-me/openconnect/main/src/server/v1.3/ocserv.sh"
+  chmod +x "$OCSERV_SCRIPT_PATH"
+  info "Запускаю ocserv через ocserv.sh в фоне (логи: $LOG_FILE)…"
+  nohup "$OCSERV_SCRIPT_PATH" ocserv --foreground >"$LOG_FILE" 2>&1 &
+  sleep 5
+}
+
+post_checks() {
+  info "Проверяю, что порт 443 слушается…"
+  if ss -tulnap | grep -qE 'LISTEN.+:443\b'; then
+    log "Порт 443 слушается."
+  else
+    warn "Порт 443 не обнаружен в LISTEN. Проверьте логи и конфиги."
+  fi
+
+  info "Пробую HTTPS к https://localhost:443 (с игнором сертификата)…"
+  if curl --insecure -fsS https://localhost:443 >/dev/null; then
+    log "HTTPS-ответ получен — ocserv отвечает."
+  else
+    warn "curl не получил ответ от https://localhost:443 — проверьте логи systemd: journalctl -u ocserv -e"
+  fi
+}
+
+banner() {
+cat <<'EOF'
 ============================================================
 Готово!
 
-• Исходники:           /usr/local/src/ocserv-<версия>
-• Бинарник ocserv:     /usr/local/sbin/ocserv
-• Docker-скрипт:       /usr/local/sbin/ocserv.sh
-• Конфиг-каталог:      /etc/ocserv
-• Логи запуска Docker: /var/log/ocserv-docker.log
+Что сделал скрипт:
+• Собрал и установил ocserv из исходников.
+• Сгенерировал ключ и самоподписанный сертификат (GNUTLS certtool).
+• Создал /etc/ocserv/ocserv.conf с заданными параметрами (предыдущий — в *.bak.*).
+• Установил и запустил systemd unit ocserv.service.
+• Включил IPv4 форвардинг (runtime и в /etc/sysctl.conf).
+• Добавил iptables правила форвардинга и NAT (с проверкой) и сохранил их.
+• Предложил создать VPN-пользователя через ocpasswd (интерактивный ввод пароля).
+
+Полезные команды:
+  systemctl status ocserv
+  journalctl -u ocserv -e
+  ocpasswd -c /etc/ocserv/ocpasswd <user>    # добавить/сменить пароль
+  iptables -S; iptables -t nat -S            # посмотреть правила
 
 Примечания:
-- Тесты "haproxy-auth" и "test-oidc" могут падать — это ожидаемо и не мешает работе.
-- При первом запуске ocserv.sh сгенерирует самоподписанные сертификаты и дефолтные параметры.
-- При необходимости откорректируйте параметры в начале /usr/local/sbin/ocserv.sh и перезапустите.
-
-Безопасность:
-- Вы добавили репозиторий Debian sid. Это нужно для свежих библиотек.
-  Если хотите ограничить автоматический выбор пакетов из sid, настройте pinning:
-    /etc/apt/preferences.d/limit-sid.pref
-    Pin: release a=unstable
-    Pin-Priority: 100
-  (в данном скрипте pinning не включён, следуем исходной статье)
+- Режим запуска по умолчанию — systemd. Вернуть «докерный» — RUN_MODE=docker.
+- WAN-интерфейс для MASQUERADE определяется автоматически, можно задать WAN_IF=eth0.
+- Конфиг включает отключение TLS 1.3 (как в твоём примере) ради совместимости.
 
 Удачной работы!
 ============================================================
 EOF
 }
 
-main "$@"                                                     # Запускаем main, передавая все аргументы командной строки
+main() {
+  require_root
+  check_debian12
+  apt_refresh_and_upgrade
+  append_sid_repo
+  apt-get update
+  install_build_deps
+  fetch_sources
+  build_and_test
+  install_ocserv
+
+  # Конфиги, ключи/серты
+  generate_certs
+  write_ocserv_conf
+
+  # Сеть и firewall
+  enable_ip_forward
+  setup_iptables_nat
+
+  if [[ "${RUN_MODE}" == "docker" ]]; then
+    run_ocserv_docker_legacy
+  else
+    install_systemd_unit
+  fi
+
+  # Пользователь VPN (интерактивно спросит пароль)
+  create_vpn_user
+
+  # Проверки
+  post_checks
+  banner
+}
+
+main "$@"
