@@ -1,6 +1,7 @@
 import {
   Box,
   Button,
+  ButtonGroup,
   Card,
   Flex,
   FormItem,
@@ -23,9 +24,16 @@ import styles from "./SettingsForm.module.css";
 interface SettingsFormProps {
   vpnProtocols: { value: string; label: string }[];
   onSubmit?: (config: ServerConfig) => void;
+  inProgress: boolean;
+  onCancel?: () => void;
 }
 
-export const SettingsForm = ({ vpnProtocols, onSubmit }: SettingsFormProps) => {
+export const SettingsForm = ({
+  vpnProtocols,
+  onSubmit,
+  inProgress,
+  onCancel,
+}: SettingsFormProps) => {
   const [username, onUsernameChange] = useFormField("");
   const [password, onPasswordChange] = useFormField("");
   const [remoteAddress, onRemoteAddressChange] = useFormField("");
@@ -92,9 +100,21 @@ export const SettingsForm = ({ vpnProtocols, onSubmit }: SettingsFormProps) => {
           </FormLayoutGroup>
         </FormLayoutGroup>
         <Box padding="2xl">
-          <Button type="submit" size="m" onClick={onSubmitButton}>
-            Настроить
-          </Button>
+          <ButtonGroup>
+            <Button
+              type="submit"
+              size="m"
+              onClick={onSubmitButton}
+              loading={inProgress}
+            >
+              Настроить
+            </Button>
+            {inProgress && (
+              <Button size="m" onClick={onCancel} mode="outline">
+                Отмена
+              </Button>
+            )}
+          </ButtonGroup>
         </Box>
       </Flex>
     </Card>
