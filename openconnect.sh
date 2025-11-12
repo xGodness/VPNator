@@ -25,6 +25,7 @@ bash -lc 'VPN_SUBNET="${VPN_SUBNET:-10.10.10.0/24}"; set -- $(ip -4 route ls def
 bash -lc 'OCSERV_CONF="/etc/ocserv/ocserv.conf"; OCBIN="$(command -v ocserv || echo /usr/local/sbin/ocserv)"; UNIT="/etc/systemd/system/ocserv.service"; printf "%s\n" "[Unit]" "Description=OpenConnect VPN Server (ocserv)" "After=network-online.target" "Wants=network-online.target" "" "[Service]" "Type=simple" "ExecStart=${OCBIN} -c ${OCSERV_CONF} --foreground" "Restart=on-failure" "RestartSec=3" "User=root" "CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_SETUID CAP_SETGID" "AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_SETUID CAP_SETGID" "NoNewPrivileges=false" "LimitNOFILE=65536" "" "[Install]" "WantedBy=multi-user.target" > "$UNIT"; systemctl daemon-reload; systemctl enable --now ocserv >/dev/null 2>&1 || true; exit 0'
  # VPNATOR-STATUS-REPORT Запущен сервис ocserv
 bash -lc 'OCSERV_DIR="/etc/ocserv"; OCSERV_PASSWD="${OCSERV_DIR}/ocpasswd"; mkdir -p "$OCSERV_DIR"; umask 077; printf "%s\n%s\n" "${OCSERV_PASS}" "${OCSERV_PASS}" | ocpasswd -c "$OCSERV_PASSWD" "${OCSERV_USER}" >/dev/null 2>&1 || true; exit 0'
+ # VPNATOR-SET-USER-VARS
  # VPNATOR-STATUS-REPORT Пользователь создан
 bash -lc 'ss -tulnap | grep -qE "LISTEN.+:443\\b" && S1=ok || S1=miss; curl --insecure -fsS https://localhost:443 >/dev/null 2>&1 && S2=ok || S2=fail; exit 0'
  # VPNATOR-STATUS-REPORT Сервис запущен и работает
