@@ -1,25 +1,20 @@
 import {
   AppRoot,
-  Box,
-  Button,
-  Card,
-  Div,
-  Flex,
-  FormItem,
-  FormLayoutGroup,
-  Input,
   Panel,
   PanelHeader,
   Root,
-  Select,
+  Spacing,
   SplitCol,
   SplitLayout,
-  Title,
   usePlatform,
   View,
 } from "@vkontakte/vkui";
+import { useState } from "react";
 
-import styles from "./App.module.css";
+import { SettingsForm } from "./ui/SettingsForm/SettingsForm";
+import { useWebSocket } from "./modules/webSocket/useWebSocket";
+import { ServerMessages } from "./ui/ServerMessages/ServerMessages";
+import { ServerConfig } from "./modules/serverConfig/serverConfig.types";
 
 const vpnProtocols = [
   {
@@ -36,8 +31,28 @@ const vpnProtocols = [
   },
 ];
 
+const WEBSOCKETS_URL = import.meta.env.VITE_WS_URL;
+
 export default function App() {
   const platform = usePlatform();
+
+  const [messages, setMessages] = useState<string[]>([]);
+  const onmessage = ({ data }: MessageEvent<string>) => {
+    setMessages((prevMessages) => [...prevMessages, data]);
+  };
+
+  const { send } = useWebSocket({ url: WEBSOCKETS_URL, onmessage });
+
+  const [inProgress, setInProgress] = useState(false);
+  const onSettingsFormSubmit = (config: ServerConfig) => {
+    const { username, password, protocol, remoteAddress } = config;
+    setInProgress(true);
+    send(`install ${protocol} ${remoteAddress} ${username} ${password}`);
+  };
+  const onCancel = () => {
+    // send('cancel');
+    setInProgress(false);
+  };
 
   return (
     <AppRoot disableSettingVKUIClassesInRuntime>
@@ -49,43 +64,14 @@ export default function App() {
             <View id="form-view" activePanel="form-panel">
               <Panel id="form-panel">
                 <PanelHeader>VPNator</PanelHeader>
-                <Card mode="shadow">
-                  <Box padding="2xl">
-                    <Title level="2">Настройка конфига</Title>
-                  </Box>
-                  <Flex className={styles.form} direction="column">
-                    <FormLayoutGroup mode="vertical">
-                      <FormItem htmlFor="address" top="Адрес">
-                        <Input name="address" id="address" />
-                      </FormItem>
-                      <FormItem htmlFor="protocol" top="Протокол">
-                        <Select
-                          options={vpnProtocols}
-                          defaultValue={null}
-                          name="protocol"
-                          id="protocol"
-                        />
-                      </FormItem>
-                      <FormLayoutGroup mode="horizontal">
-                        <FormItem htmlFor="username" top="Имя пользователя">
-                          <Input name="username" id="username" />
-                        </FormItem>
-                        <FormItem htmlFor="password" top="Пароль">
-                          <Input
-                            name="password"
-                            id="password"
-                            type="password"
-                          />
-                        </FormItem>
-                      </FormLayoutGroup>
-                    </FormLayoutGroup>
-                    <Box padding="2xl">
-                      <Button type="submit" size="m">
-                        Настроить
-                      </Button>
-                    </Box>
-                  </Flex>
-                </Card>
+                <SettingsForm
+                  vpnProtocols={vpnProtocols}
+                  onSubmit={onSettingsFormSubmit}
+                  inProgress={inProgress}
+                  onCancel={onCancel}
+                />
+                <Spacing size="m" />
+                {messages.length > 0 && <ServerMessages messages={messages} />}
               </Panel>
             </View>
           </Root>
