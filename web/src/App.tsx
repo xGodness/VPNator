@@ -43,9 +43,15 @@ export default function App() {
 
   const { send } = useWebSocket({ url: WEBSOCKETS_URL, onmessage });
 
+  const [inProgress, setInProgress] = useState(false);
   const onSettingsFormSubmit = (config: ServerConfig) => {
     const { username, password, protocol, remoteAddress } = config;
+    setInProgress(true);
     send(`install ${protocol} ${remoteAddress} ${username} ${password}`);
+  };
+  const onCancel = () => {
+    // send('cancel');
+    setInProgress(false);
   };
 
   return (
@@ -61,6 +67,8 @@ export default function App() {
                 <SettingsForm
                   vpnProtocols={vpnProtocols}
                   onSubmit={onSettingsFormSubmit}
+                  inProgress={inProgress}
+                  onCancel={onCancel}
                 />
                 <Spacing size="m" />
                 {messages.length > 0 && <ServerMessages messages={messages} />}
