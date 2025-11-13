@@ -59,10 +59,13 @@ const parseMessage = (message: string): ParsedMessage => {
 export default function App() {
   const platform = usePlatform();
 
-  const [isOpened, setIsOpened] = useState(true);
+  const [isOpened, setIsOpened] = useState(false);
   useEffect(() => {
     if (!isOpened) close();
   }, [isOpened]);
+  const onopen = () => {
+    setIsOpened(true);
+  };
 
   const [messages, setMessages] = useState<string[]>([]);
   const onmessage = ({ data }: MessageEvent<string>) => {
@@ -70,23 +73,21 @@ export default function App() {
 
     if (type === MessageType.end) {
       setIsOpened(false);
-      setInProgress(false);
     }
 
     setMessages((prevMessages) => [...prevMessages, text]);
   };
 
-  const { send, close } = useWebSocket({ url: WEBSOCKETS_URL, onmessage });
+  const { send, close, open } = useWebSocket({ onmessage, onopen });
 
-  const [inProgress, setInProgress] = useState(false);
   const onSettingsFormSubmit = (config: ServerConfig) => {
     const { username, password, protocol, remoteAddress } = config;
-    setInProgress(true);
+    open(WEBSOCKETS_URL);
     send(`install ${protocol} ${remoteAddress} ${username} ${password}`);
   };
   const onCancel = () => {
     // send('cancel');
-    setInProgress(false);
+    setIsOpened(false);
   };
 
   return (
@@ -102,7 +103,7 @@ export default function App() {
                 <SettingsForm
                   vpnProtocols={vpnProtocols}
                   onSubmit={onSettingsFormSubmit}
-                  inProgress={inProgress}
+                  inProgress={isOpened}
                   onCancel={onCancel}
                 />
                 <Spacing size="m" />

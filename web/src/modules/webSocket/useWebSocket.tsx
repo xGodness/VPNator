@@ -5,10 +5,10 @@ import { noop } from "../../utils/noop";
 interface WebSocketValue {
   send: WebSocket["send"];
   close: WebSocket["close"];
+  open: (url: string | URL) => void;
 }
 
 interface WebSocketParams<T = any> {
-  url: string | URL;
   onopen?: (event: Event) => void;
   onmessage?: (event: MessageEvent<T>) => void;
   onclose?: (event: CloseEvent) => void;
@@ -16,7 +16,6 @@ interface WebSocketParams<T = any> {
 }
 
 export const useWebSocket = <T extends unknown>({
-  url,
   onopen = noop,
   onmessage = noop,
   onclose = noop,
@@ -24,7 +23,7 @@ export const useWebSocket = <T extends unknown>({
 }: WebSocketParams<T>): WebSocketValue => {
   const [webSocket, setWebSocket] = useState<WebSocket | null>(null);
 
-  useEffect(() => {
+  const open = (url: string | URL) => {
     const ws = new WebSocket(url);
 
     ws.onopen = (event: Event) => {
@@ -35,13 +34,10 @@ export const useWebSocket = <T extends unknown>({
     ws.onmessage = onmessage;
     ws.onclose = onclose;
     ws.onerror = onerror;
-
-    return () => {
-      webSocket?.close();
-    };
-  }, [url]);
+  };
 
   return {
+    open,
     send: webSocket?.send.bind(webSocket) ?? noop,
     close: webSocket?.close.bind(webSocket) ?? noop,
   };
