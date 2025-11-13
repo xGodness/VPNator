@@ -6,9 +6,11 @@ import {
   Flex,
   FormItem,
   FormLayoutGroup,
+  IconButton,
   Input,
   Select,
   Title,
+  Tooltip,
 } from "@vkontakte/vkui";
 import { ChangeEvent, useCallback, useEffect, useState } from "react";
 import { SelectValue } from "@vkontakte/vkui/dist/components/NativeSelect/NativeSelect";
@@ -20,6 +22,7 @@ import {
 } from "../../modules/serverConfig/serverConfig.types";
 
 import styles from "./SettingsForm.module.css";
+import { Icon16InfoOutline } from "@vkontakte/icons";
 
 interface SettingsFormProps {
   vpnProtocols: { value: string; label: string }[];
@@ -89,6 +92,14 @@ export const SettingsForm = ({
               id="address"
               value={remoteAddress}
               onChange={onRemoteAddressChange}
+              after={
+                <Tooltip
+                  placement="top"
+                  description="Укажите адрес удаленного сервера. Опционально можете указать порт через двоеточие"
+                >
+                  <Icon16InfoOutline />
+                </Tooltip>
+              }
             />
           </FormItem>
           <FormLayoutGroup mode="horizontal">
@@ -98,6 +109,14 @@ export const SettingsForm = ({
                 id="username"
                 value={username}
                 onChange={onUsernameChange}
+                after={
+                  <Tooltip
+                    placement="top"
+                    description="Имя пользователя для подключения к удаленному серверу по ssh"
+                  >
+                    <Icon16InfoOutline />
+                  </Tooltip>
+                }
               />
             </FormItem>
             <FormItem htmlFor="password" top="Пароль">
@@ -121,6 +140,14 @@ export const SettingsForm = ({
                   id="vpn-username"
                   value={vpnUsername}
                   onChange={onVpnUsernameChange}
+                  after={
+                    <Tooltip
+                      placement="top"
+                      description="Укажите имя пользователя для протокола"
+                    >
+                      <Icon16InfoOutline />
+                    </Tooltip>
+                  }
                 />
               </FormItem>
               <FormItem htmlFor="vpn-password" top="Пароль OpenConnect">
