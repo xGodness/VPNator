@@ -1,5 +1,8 @@
 # VPNator
 
+## Презентация
+[Ссылка](https://docs.google.com/presentation/d/1M-hD7ZeMmfPStacPce1kXTsUimI97tKj/edit?usp=sharing&ouid=101911802605495571084&rtpof=true&sd=true)
+
 ## VPNator server
 
 ### Требования
@@ -21,8 +24,8 @@ make build
 make backend
 ```
 
-
 ## VPNator web
+
 
 ### Настройка и запуск
 
