@@ -5,27 +5,27 @@ bash -lc 'export DEBIAN_FRONTEND=noninteractive; apt-get update || true; apt-get
 bash -lc 'f=/etc/apt/sources.list; grep -qE "^[[:space:]]*deb[[:space:]].*debian[[:space:]]+sid[[:space:]]+main" "$f" || echo "deb http://deb.debian.org/debian sid main" >> "$f";  exit 0'
 # VPNATOR-STATUS-REPORT Добавлен репозиторий sid(если еще не был)
 bash -lc 'export DEBIAN_FRONTEND=noninteractive; apt-get update || true; apt-get install -y build-essential fakeroot devscripts iputils-ping ruby-ronn openconnect libuid-wrapper libnss-wrapper libsocket-wrapper gss-ntlmssp git autoconf libtool autopoint gettext automake nettle-dev libwrap0-dev libpam0g-dev liblz4-dev libseccomp-dev libreadline-dev libnl-route-3-dev libkrb5-dev liboath-dev libradcli-dev libprotobuf-dev libtalloc-dev libhttp-parser-dev libpcl1-dev protobuf-c-compiler gperf liblockfile-bin nuttcp libpam-oath libev-dev libgnutls28-dev gnutls-bin haproxy yajl-tools libcurl4-gnutls-dev libcjose-dev libjansson-dev libssl-dev iproute2 libpam-wrapper tcpdump libopenconnect-dev iperf3 ipcalc-ng freeradius libfreeradius-dev curl ca-certificates xz-utils pkg-config make iptables iptables-persistent ssmtp || true; apt-get install -y gnutls-bin iptables iptables-persistent || true; exit 0'
- # VPNATOR-STATUS-REPORT Установлены зависимости
+# VPNATOR-STATUS-REPORT Установлены зависимости
 bash -lc 'OCSERV_VERSION="${OCSERV_VERSION:-1.3.0}"; SRC_URL="https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz"; SRC_DIR="/usr/local/src"; TARBALL="${SRC_DIR}/ocserv-${OCSERV_VERSION}.tar.xz"; mkdir -p "$SRC_DIR"; [ -f "$TARBALL" ] || curl -fL -o "$TARBALL" "$SRC_URL"; exit 0'
- # VPNATOR-STATUS-REPORT Скачаны исходники ocserv
+# VPNATOR-STATUS-REPORT Скачаны исходники ocserv
 bash -lc 'OCSERV_VERSION="${OCSERV_VERSION:-1.3.0}"; SRC_DIR="/usr/local/src"; TARBALL="${SRC_DIR}/ocserv-${OCSERV_VERSION}.tar.xz"; BUILD_DIR="${SRC_DIR}/ocserv-${OCSERV_VERSION}"; [ -d "$BUILD_DIR" ] || tar -xvf "$TARBALL" -C "$SRC_DIR" >/dev/null 2>&1 || true; exit 0'
- # VPNATOR-STATUS-REPORT Распакованы исходники ocserv
+# VPNATOR-STATUS-REPORT Распакованы исходники ocserv
 bash -lc 'OCSERV_VERSION="${OCSERV_VERSION:-1.3.0}"; BUILD_DIR="/usr/local/src/ocserv-${OCSERV_VERSION}"; [ -d "$BUILD_DIR" ] && (cd "$BUILD_DIR" && ./configure --enable-oidc-auth && make -j"$(nproc)") || true; exit 0'
- # VPNATOR-STATUS-REPORT Собран ocserv
+# VPNATOR-STATUS-REPORT Собран ocserv
 bash -lc 'OCSERV_VERSION="${OCSERV_VERSION:-1.3.0}"; BUILD_DIR="/usr/local/src/ocserv-${OCSERV_VERSION}"; [ -d "$BUILD_DIR" ] && (cd "$BUILD_DIR" && make install) || true; command -v ocserv >/dev/null 2>&1 || ln -sf /usr/local/sbin/ocserv /usr/local/bin/ocserv 2>/dev/null || true;  exit 0'
- # VPNATOR-STATUS-REPORT Установлен ocserv
+# VPNATOR-STATUS-REPORT Установлен ocserv
 bash -lc 'OCSERV_DIR="/etc/ocserv"; SERVER_KEY="${OCSERV_DIR}/server-key.pem"; SERVER_CERT="${OCSERV_DIR}/server-cert.pem"; CERT_CN="${CERT_CN:-ocserv}"; CERT_ORG="${CERT_ORG:-VPN}"; CERT_DAYS="${CERT_DAYS:-3650}"; mkdir -p "$OCSERV_DIR"; chmod 700 "$OCSERV_DIR" || true; [ -f "$SERVER_KEY" ] || certtool --generate-privkey --bits 3072 --outfile "$SERVER_KEY"; chmod 600 "$SERVER_KEY" || true; if [ ! -f "$SERVER_CERT" ]; then tmpl=$(mktemp); printf "cn = \\"%s\\"\\norganization = \\"%s\\"\\nserial = 001\\nexpiration_days = %s\\nsigning_key\\ntls_www_server\\nencryption_key\\n" "$CERT_CN" "$CERT_ORG" "$CERT_DAYS" >"$tmpl"; certtool --generate-self-signed --load-privkey "$SERVER_KEY" --template "$tmpl" --outfile "$SERVER_CERT"; rm -f "$tmpl"; fi; exit 0'
- # VPNATOR-STATUS-REPORT Сгенерированы сертификаты
+# VPNATOR-STATUS-REPORT Сгенерированы сертификаты
 bash -lc 'OCSERV_CONF="/etc/ocserv/ocserv.conf"; mkdir -p /etc/ocserv; [ -f "$OCSERV_CONF" ] && cp -a "$OCSERV_CONF" "${OCSERV_CONF}.bak.$(date +%Y%m%d%H%M%S)" || true; printf %s $'"'"'auth = "plain[passwd=/etc/ocserv/ocpasswd]"\ntcp-port = 443\nsocket-file = /run/ocserv-socket\nserver-cert = /etc/ocserv/server-cert.pem\nserver-key = /etc/ocserv/server-key.pem\nisolate-workers = true\nmax-clients = 20\nmax-same-clients = 2\nrate-limit-ms = 100\nserver-stats-reset-time = 604800\nkeepalive = 32\noutput-buffer = 23000\ndpd = 120\nmobile-dpd = 1800\nswitch-to-tcp-timeout = 25\ntry-mtu-discovery = false\ncert-user-oid = 0.9.2342.19200300.100.1.1\ntls-priorities = "NORMAL:%SERVER_PRECEDENCE:%COMPAT:-VERS-SSL3.0:-VERS-TLS1.0:-VERS-TLS1.1:-VERS-TLS1.3"\nauth-timeout = 1000\nmin-reauth-time = 300\nmax-ban-score = 100\nban-reset-time = 1200\ncookie-timeout = 600\ndeny-roaming = false\nrekey-time = 172800\nrekey-method = ssl\nuse-occtl = true\npid-file = /run/ocserv.pid\nlog-level = 1\ndevice = vpns\npredictable-ips = true\nipv4-network = 10.10.10.0\nipv4-netmask = 255.255.255.0\ntunnel-all-dns = true\ndns = 8.8.8.8\nping-leases = false\ncisco-client-compat = true\nudp-port = 443\ndtls-legacy = true\nclient-bypass-protocol = false\nroute = default\n'"'"' > "$OCSERV_CONF";  exit 0'
- # VPNATOR-STATUS-REPORT Настройки ocserv записаны
+# VPNATOR-STATUS-REPORT Настройки ocserv записаны
 bash -lc 'sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || true; if grep -qE "^[[:space:]]*net\.ipv4\.ip_forward" /etc/sysctl.conf; then sed -i "s|^\s*net\.ipv4\.ip_forward\s*=.*|net.ipv4.ip_forward=1|" /etc/sysctl.conf; else echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf; fi; sysctl --system >/dev/null 2>&1 || true; exit 0'
- # VPNATOR-STATUS-REPORT Включен forwarding
+# VPNATOR-STATUS-REPORT Включен forwarding
 bash -lc 'VPN_SUBNET="${VPN_SUBNET:-10.10.10.0/24}"; set -- $(ip -4 route ls default 2>/dev/null | head -n1); WAN_IF="${WAN_IF:-${5:-}}"; WAN_IF="${WAN_IF:-eth0}"; iptables -C FORWARD -s "$VPN_SUBNET" -j ACCEPT 2>/dev/null || iptables -A FORWARD -s "$VPN_SUBNET" -j ACCEPT; iptables -C FORWARD -d "$VPN_SUBNET" -j ACCEPT 2>/dev/null || iptables -A FORWARD -d "$VPN_SUBNET" -j ACCEPT; iptables -t nat -C POSTROUTING -s "$VPN_SUBNET" -o "$WAN_IF" -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -s "$VPN_SUBNET" -o "$WAN_IF" -j MASQUERADE; mkdir -p /etc/iptables; iptables-save > /etc/iptables/rules.v4; systemctl enable --now netfilter-persistent >/dev/null 2>&1 || true; exit 0'
- # VPNATOR-STATUS-REPORT Настроен NAT
+# VPNATOR-STATUS-REPORT Настроен NAT
 bash -lc 'OCSERV_CONF="/etc/ocserv/ocserv.conf"; OCBIN="$(command -v ocserv || echo /usr/local/sbin/ocserv)"; UNIT="/etc/systemd/system/ocserv.service"; printf "%s\n" "[Unit]" "Description=OpenConnect VPN Server (ocserv)" "After=network-online.target" "Wants=network-online.target" "" "[Service]" "Type=simple" "ExecStart=${OCBIN} -c ${OCSERV_CONF} --foreground" "Restart=on-failure" "RestartSec=3" "User=root" "CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_SETUID CAP_SETGID" "AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_SETUID CAP_SETGID" "NoNewPrivileges=false" "LimitNOFILE=65536" "" "[Install]" "WantedBy=multi-user.target" > "$UNIT"; systemctl daemon-reload; systemctl enable --now ocserv >/dev/null 2>&1 || true; exit 0'
- # VPNATOR-STATUS-REPORT Запущен сервис ocserv
-bash -lc 'OCSERV_DIR="/etc/ocserv"; OCSERV_PASSWD="${OCSERV_DIR}/ocpasswd"; mkdir -p "$OCSERV_DIR"; umask 077; printf "%s\n%s\n" "${OCSERV_PASS}" "${OCSERV_PASS}" | ocpasswd -c "$OCSERV_PASSWD" "${OCSERV_USER}" >/dev/null 2>&1 || true; exit 0'
- # VPNATOR-SET-USER-VARS
- # VPNATOR-STATUS-REPORT Пользователь создан
+# VPNATOR-STATUS-REPORT Запущен сервис ocserv
+bash -lc 'OCSERV_DIR="/etc/ocserv"; OCSERV_PASSWD="${OCSERV_DIR}/ocpasswd"; mkdir -p "$OCSERV_DIR"; umask 077; printf "%s\n%s\n" "${OCSERV_PASS}" "${OCSERV_PASS}" | ocpasswd -c "$OCSERV_PASSWD" "${OCSERV_USER}" >/dev/null 2>&1 || true; exit 0' # VPNATOR-SET-USER-VARS
+# VPNATOR-STATUS-REPORT Пользователь создан
 bash -lc 'ss -tulnap | grep -qE "LISTEN.+:443\\b" && S1=ok || S1=miss; curl --insecure -fsS https://localhost:443 >/dev/null 2>&1 && S2=ok || S2=fail; exit 0'
- # VPNATOR-STATUS-REPORT Сервис запущен и работает
+# VPNATOR-STATUS-REPORT Сервис запущен и работает
+ 
