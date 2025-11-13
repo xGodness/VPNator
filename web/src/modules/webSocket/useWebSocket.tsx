@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { noop } from "../../utils/noop";
 
@@ -23,12 +23,25 @@ export const useWebSocket = <T extends unknown>({
 }: WebSocketParams<T>): WebSocketValue => {
   const [webSocket, setWebSocket] = useState<WebSocket | null>(null);
 
+  const messagesQueueRef = useRef<
+    (string | ArrayBufferLike | Blob | ArrayBufferView<ArrayBufferLike>)[]
+  >([]);
+  const sendToQueue: WebSocket["send"] = (message) => {
+    messagesQueueRef.current.push(message);
+  };
+
   const open = (url: string | URL) => {
     const ws = new WebSocket(url);
 
     ws.onopen = (event: Event) => {
       setWebSocket(ws);
       onopen(event);
+
+      while (messagesQueueRef.current.length > 0) {
+        const msg = messagesQueueRef.current[0];
+        messagesQueueRef.current.splice(0, 1);
+        ws.send(msg);
+      }
     };
 
     ws.onmessage = onmessage;
@@ -38,7 +51,7 @@ export const useWebSocket = <T extends unknown>({
 
   return {
     open,
-    send: webSocket?.send.bind(webSocket) ?? noop,
+    send: webSocket?.send.bind(webSocket) ?? sendToQueue,
     close: webSocket?.close.bind(webSocket) ?? noop,
   };
 };
