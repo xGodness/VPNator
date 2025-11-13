@@ -10,5 +10,5 @@ export const useFormField = (initialValue: string) => {
     [setField]
   );
 
-  return [field, onFieldChange] as const;
+  return [field, onFieldChange, setField] as const;
 };

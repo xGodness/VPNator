@@ -1,14 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { noop } from "../../utils/noop";
 
 interface WebSocketValue {
   send: WebSocket["send"];
   close: WebSocket["close"];
+  open: (url: string | URL) => void;
 }
 
 interface WebSocketParams<T = any> {
-  url: string | URL;
   onopen?: (event: Event) => void;
   onmessage?: (event: MessageEvent<T>) => void;
   onclose?: (event: CloseEvent) => void;
@@ -16,7 +16,6 @@ interface WebSocketParams<T = any> {
 }
 
 export const useWebSocket = <T extends unknown>({
-  url,
   onopen = noop,
   onmessage = noop,
   onclose = noop,
@@ -24,25 +23,35 @@ export const useWebSocket = <T extends unknown>({
 }: WebSocketParams<T>): WebSocketValue => {
   const [webSocket, setWebSocket] = useState<WebSocket | null>(null);
 
-  useEffect(() => {
+  const messagesQueueRef = useRef<
+    (string | ArrayBufferLike | Blob | ArrayBufferView<ArrayBufferLike>)[]
+  >([]);
+  const sendToQueue: WebSocket["send"] = (message) => {
+    messagesQueueRef.current.push(message);
+  };
+
+  const open = (url: string | URL) => {
     const ws = new WebSocket(url);
 
     ws.onopen = (event: Event) => {
       setWebSocket(ws);
       onopen(event);
+
+      while (messagesQueueRef.current.length > 0) {
+        const msg = messagesQueueRef.current[0];
+        messagesQueueRef.current.splice(0, 1);
+        ws.send(msg);
+      }
     };
 
     ws.onmessage = onmessage;
     ws.onclose = onclose;
     ws.onerror = onerror;
-
-    return () => {
-      webSocket?.close();
-    };
-  }, [url]);
+  };
 
   return {
-    send: webSocket?.send.bind(webSocket) ?? noop,
+    open,
+    send: webSocket?.send.bind(webSocket) ?? sendToQueue,
     close: webSocket?.close.bind(webSocket) ?? noop,
   };
 };

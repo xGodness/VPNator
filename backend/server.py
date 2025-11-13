@@ -12,6 +12,7 @@ from command_executor import SSHConfig, CommandExecutor, ExecutionException
 
 STATUS_REPORT_PREFIX = "# VPNATOR-STATUS-REPORT "
 SET_USER_VARS_SUFFIX = "# VPNATOR-SET-USER-VARS"
+SAVE_OUTPUT = "# VPNATOR-SAVE-OUTPUT"
 COMPLETE = "VPNATOR-COMPLETE"
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,7 @@ class Server:
         
         try:
             with open(resource_path(f"scripts/{vpn_type.value}.sh"), "r") as file:
+                save_ovpn = False
                 for line in file:
                     line = line.strip()
                     if line.startswith(STATUS_REPORT_PREFIX):
@@ -72,6 +74,8 @@ class Server:
                         acc_username = args[4]
                         acc_password = args[5]
                         cmd = f"OCSERV_USER=\"{acc_username}\" OCSERV_PASS=\"{acc_password}\" {cmd}"
+                    elif line.endswith(SAVE_OUTPUT):
+                        save_ovpn = True
 
                     result = await to_thread(executor.execute, cmd)
                     if result.code != 0:
@@ -82,6 +86,10 @@ class Server:
                         return
                     else:
                         logger.info(result.stdout)
+                        if save_ovpn:
+                            save_ovpn = False
+                            with open("client.ovpn" if vpn_type == VPNType.OPENVPN else "outline-key.txt", "w") as out:
+                                out.write(result.stdout)
 
                 await websocket.send_text(COMPLETE)
         except FileNotFoundError as e:

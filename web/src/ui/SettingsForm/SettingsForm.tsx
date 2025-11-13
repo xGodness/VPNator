@@ -10,7 +10,7 @@ import {
   Select,
   Title,
 } from "@vkontakte/vkui";
-import { ChangeEvent, useCallback, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useState } from "react";
 import { SelectValue } from "@vkontakte/vkui/dist/components/NativeSelect/NativeSelect";
 
 import { useFormField } from "../../utils/useFormField";
@@ -38,7 +38,17 @@ export const SettingsForm = ({
   const [password, onPasswordChange] = useFormField("");
   const [remoteAddress, onRemoteAddressChange] = useFormField("");
 
+  const [vpnUsername, onVpnUsernameChange, setVpnUsername] = useFormField("");
+  const [vpnPassword, onVpnPasswordChange, setVpnPassword] = useFormField("");
+
   const [protocol, setProtocol] = useState(VpnProtocol.outline);
+  useEffect(() => {
+    if (protocol !== VpnProtocol.openconnect) {
+      setVpnUsername("");
+      setVpnPassword("");
+    }
+  }, [protocol]);
+
   const onProtocolChange = useCallback(
     (_: ChangeEvent<HTMLSelectElement>, newValue: SelectValue) => {
       setProtocol(newValue as VpnProtocol);
@@ -52,6 +62,8 @@ export const SettingsForm = ({
       password,
       protocol,
       remoteAddress,
+      vpnUsername,
+      vpnPassword,
     });
   };
 
@@ -98,6 +110,30 @@ export const SettingsForm = ({
               />
             </FormItem>
           </FormLayoutGroup>
+          {protocol === VpnProtocol.openconnect && (
+            <FormLayoutGroup mode="horizontal">
+              <FormItem
+                htmlFor="vpn-username"
+                top="Имя пользователя OpenConnect"
+              >
+                <Input
+                  name="vpn-username"
+                  id="vpn-username"
+                  value={vpnUsername}
+                  onChange={onVpnUsernameChange}
+                />
+              </FormItem>
+              <FormItem htmlFor="vpn-password" top="Пароль OpenConnect">
+                <Input
+                  name="vpn-password"
+                  id="vpn-password"
+                  type="password"
+                  value={vpnPassword}
+                  onChange={onVpnPasswordChange}
+                />
+              </FormItem>
+            </FormLayoutGroup>
+          )}
         </FormLayoutGroup>
         <Box padding="2xl">
           <ButtonGroup>
