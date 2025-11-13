@@ -5,14 +5,6 @@ from typing import Mapping
 from paramiko import SSHClient, AutoAddPolicy, AuthenticationException
 from paramiko.ssh_exception import SSHException
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler()
-    ]
-)
-
 logger = logging.getLogger(__name__)
 
 
