@@ -1,4 +1,5 @@
-if [ "$(id -u)" -eq 0 ]; then echo "Этот скрипт нельзя запускать от root!"; exit 1; fi
+# if [ "$(id -u)" -eq 0 ]; then echo "Этот скрипт нельзя запускать от root!"; exit 1; fi
+
 apt-get update
 apt-get install -y --no-install-recommends openvpn openssl ca-certificates iptables wget iptables-persistent
 # VPNATOR-STATUS-REPORT Установлены необходимые пакеты
@@ -8,9 +9,9 @@ wget -qO- https://github.com/OpenVPN/easy-rsa/releases/download/v3.2.4/EasyRSA-3
 chown -R root:root /etc/openvpn/server/easy-rsa
 # VPNATOR-STATUS-REPORT EasyRSA скачан и распакован
 
-/etc/openvpn/server/easy-rsa/easyrsa --batch init-pki
-/etc/openvpn/server/easy-rsa/easyrsa --batch build-ca nopass
-/etc/openvpn/server/easy-rsa/easyrsa gen-tls-crypt-key
+cd /etc/openvpn/server/easy-rsa && ./easyrsa --batch init-pki
+cd /etc/openvpn/server/easy-rsa && ./easyrsa --batch build-ca nopass
+cd /etc/openvpn/server/easy-rsa && ./easyrsa gen-tls-crypt-key
 # VPNATOR-STATUS-REPORT Инициализирован PKI, сгенерирован CA и tls-crypt key
 
 echo "-----BEGIN DH PARAMETERS-----" > /etc/openvpn/server/dh.pem
@@ -21,11 +22,12 @@ echo "YdEIqUuyyOP7uWrat2DX9GgdT0Kj3jlN9K5W7edjcrsZCwenyO4KbXCeAvzhzffi" >> /etc/
 echo "7MA0BM0oNC9hkXL+nOmFg/+OTxIy7vKBg8P+OxtMb61zO7X8vC7CIAXFjvGDfRaD" >> /etc/openvpn/server/dh.pem
 echo "ssbzSibBsu/6iGtCOGEoXJf//////////wIBAg==" >> /etc/openvpn/server/dh.pem
 echo "-----END DH PARAMETERS-----" >> /etc/openvpn/server/dh.pem
+
 ln -sf /etc/openvpn/server/dh.pem /etc/openvpn/server/easy-rsa/pki/dh.pem
 # VPNATOR-STATUS-REPORT DH параметры сгенерированы и симлинк создан
 
-/etc/openvpn/server/easy-rsa/easyrsa --batch --days=3650 build-server-full server nopass
-/etc/openvpn/server/easy-rsa/easyrsa --batch --days=3650 gen-crl
+cd /etc/openvpn/server/easy-rsa && ./easyrsa --batch --days=3650 build-server-full server nopass
+cd /etc/openvpn/server/easy-rsa && ./easyrsa --batch --days=3650 gen-crl
 # VPNATOR-STATUS-REPORT Серверный сертификат и CRL сгенерированы
 
 cp /etc/openvpn/server/easy-rsa/pki/ca.crt /etc/openvpn/server/
@@ -77,7 +79,7 @@ netfilter-persistent save
 systemctl enable --now openvpn-server@server.service
 # VPNATOR-STATUS-REPORT OpenVPN сервер запущен и добавлен в автозагрузку
 
-/etc/openvpn/server/easy-rsa/easyrsa --batch --days=3650 build-client-full client nopass
+cd /etc/openvpn/server/easy-rsa && ./easyrsa --batch --days=3650 build-client-full client nopass
 # VPNATOR-STATUS-REPORT Сгенерирован клиентский сертификат
 
 curl -s4 ifconfig.me > /etc/openvpn/server/server_ip.txt
@@ -100,17 +102,16 @@ cat /etc/openvpn/server/tc.key >> /etc/openvpn/server/client-common.txt
 echo "</tls-crypt>" >> /etc/openvpn/server/client-common.txt
 # VPNATOR-STATUS-REPORT Создан шаблон client-common.txt
 
-cp /etc/openvpn/server/client-common.txt /root/client.ovpn
-echo "<ca>" >> /root/client.ovpn
-cat /etc/openvpn/server/ca.crt >> /root/client.ovpn
-echo "</ca>" >> /root/client.ovpn
-echo "<cert>" >> /root/client.ovpn
-cat /etc/openvpn/server/easy-rsa/pki/issued/client.crt >> /root/client.ovpn
-echo "</cert>" >> /root/client.ovpn
-echo "<key>" >> /root/client.ovpn
-cat /etc/openvpn/server/easy-rsa/pki/private/client.key >> /root/client.ovpn
-echo "</key>" >> /root/client.ovpn
+cp /etc/openvpn/server/client-common.txt ~/client.ovpn
+echo "<ca>" >> ~/client.ovpn
+cat /etc/openvpn/server/ca.crt >> ~/client.ovpn
+echo "</ca>" >> ~/client.ovpn
+echo "<cert>" >> ~/client.ovpn
+cat /etc/openvpn/server/easy-rsa/pki/issued/client.crt >> ~/client.ovpn
+echo "</cert>" >> ~/client.ovpn
+echo "<key>" >> ~/client.ovpn
+cat /etc/openvpn/server/easy-rsa/pki/private/client.key >> ~/client.ovpn
+echo "</key>" >> ~/client.ovpn
 # VPNATOR-STATUS-REPORT Итоговый клиентский конфиг client.ovpn собран
 
-cat /root/client.ovpn
-# VPNATOR-STATUS-REPORT Конфиг client.ovpn выведен на экран
+cat ~/client.ovpn # VPNATOR-SAVE-OUTPUT

@@ -23,10 +23,11 @@ def main() -> FastAPI:
     app = FastAPI()
     server = Server()
 
+    app.websocket("/ws")(server.endpoint)
+
     app.mount("/VPNator", StaticFiles(directory="web/dist"))
     app.mount("/", StaticFiles(directory="web/dist", html = True))
 
-    app.websocket("/ws")(server.endpoint)
     return app
 
 
