@@ -92,6 +92,7 @@ export default function App() {
       vpnUsername,
       vpnPassword,
     } = config;
+    setMessages([]);
     open(WEBSOCKETS_URL);
     send(
       `install ${protocol} ${remoteAddress} ${username} ${password}${
