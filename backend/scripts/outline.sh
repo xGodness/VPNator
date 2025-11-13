@@ -29,6 +29,6 @@ if [ -z "$(curl -s -k "$(cat /tmp/api_url)/access-keys" 2>/dev/null)" ] || ! cur
 curl -s -k "$(cat /tmp/api_url)/access-keys" 2>/dev/null | jq -r '.accessKeys[0].accessUrl // empty' 2>/dev/null | sudo tee /tmp/user_access_key > /dev/null
 if [ -z "$(cat /tmp/user_access_key)" ] || [ "$(cat /tmp/user_access_key)" = "null" ] || [ "$(cat /tmp/user_access_key)" = "" ]; then echo "Error: Could not extract accessUrl from API response" >&2 && exit 1; fi
 
-# VPNATOR-STATUS-REPORT Ключ создан, настройка завершена успешно!
+# VPNATOR-STATUS-REPORT Ключ сохранен в файл outline-key.txt
 
 cat /tmp/user_access_key # VPNATOR-SAVE-OUTPUT

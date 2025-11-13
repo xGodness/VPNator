@@ -22,6 +22,7 @@ export const useWebSocket = <T extends unknown>({
   onerror = noop,
 }: WebSocketParams<T>): WebSocketValue => {
   const [webSocket, setWebSocket] = useState<WebSocket | null>(null);
+  const webSocketRef = useRef<WebSocket | null>(null);
 
   const messagesQueueRef = useRef<
     (string | ArrayBufferLike | Blob | ArrayBufferView<ArrayBufferLike>)[]
@@ -31,7 +32,20 @@ export const useWebSocket = <T extends unknown>({
   };
 
   const open = (url: string | URL) => {
+    // Close existing WebSocket if any
+    if (webSocketRef.current) {
+      const ws = webSocketRef.current;
+      ws.onclose = noop; // Prevent calling onclose when we manually close
+      ws.onerror = noop; // Prevent calling onerror when we manually close
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        ws.close();
+      }
+      webSocketRef.current = null;
+      setWebSocket(null);
+    }
+
     const ws = new WebSocket(url);
+    webSocketRef.current = ws;
 
     ws.onopen = (event: Event) => {
       setWebSocket(ws);
@@ -45,13 +59,31 @@ export const useWebSocket = <T extends unknown>({
     };
 
     ws.onmessage = onmessage;
-    ws.onclose = onclose;
+    ws.onclose = (event: CloseEvent) => {
+      webSocketRef.current = null;
+      setWebSocket(null);
+      onclose(event);
+    };
     ws.onerror = onerror;
+  };
+
+  const close = () => {
+    if (webSocketRef.current) {
+      const ws = webSocketRef.current;
+      ws.onclose = noop; // Prevent calling onclose when we manually close
+      ws.onerror = noop; // Prevent calling onerror when we manually close
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        ws.close();
+      }
+      webSocketRef.current = null;
+      setWebSocket(null);
+    }
   };
 
   return {
     open,
     send: webSocket?.send.bind(webSocket) ?? sendToQueue,
-    close: webSocket?.close.bind(webSocket) ?? noop,
+    close,
   };
 };
+
