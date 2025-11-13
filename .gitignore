@@ -1,5 +1,6 @@
 .idea
 .vscode
-.venv
-.env
+**/*.venv
 **/*.pyc
+**/*.log
+backend/scripts/tmp
