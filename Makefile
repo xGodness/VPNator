@@ -1,8 +1,11 @@
 venv:
-	@[ -d backend/.venv ] || python3 -m venv backend/.venv
+	@cd backend && [ -d .venv ] || python3 -m venv .venv
 
 install: venv
-	@backend/.venv/bin/pip install -r backend/requirements.txt
+	@cd backend && .venv/bin/pip install -r requirements.txt
 
 backend: venv install
-	@backend/.venv/bin/uvicorn backend.main:main --reload
+	@cd backend && .venv/bin/uvicorn main:main --reload
+
+build: venv install
+	@cd backend && pyinstaller --onefile --add-data=scripts:scripts --name vpnator_server main.py
