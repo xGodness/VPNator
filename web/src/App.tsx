@@ -9,7 +9,7 @@ import {
   usePlatform,
   View,
 } from "@vkontakte/vkui";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { SettingsForm } from "./ui/SettingsForm/SettingsForm";
 import { useWebSocket } from "./modules/webSocket/useWebSocket";
@@ -33,25 +33,61 @@ const vpnProtocols = [
 
 const WEBSOCKETS_URL = import.meta.env.VITE_WS_URL;
 
+const enum MessageType {
+  info = "info",
+  end = "end",
+}
+interface ParsedMessage {
+  type: MessageType;
+  text: string;
+}
+
+const parseMessage = (message: string): ParsedMessage => {
+  if (message === "VPNATOR-COMPLETE") {
+    return {
+      type: MessageType.end,
+      text: "Настройка завершена",
+    };
+  }
+
+  return {
+    type: MessageType.info,
+    text: message,
+  };
+};
+
 export default function App() {
   const platform = usePlatform();
 
-  const [messages, setMessages] = useState<string[]>([]);
-  const onmessage = ({ data }: MessageEvent<string>) => {
-    setMessages((prevMessages) => [...prevMessages, data]);
+  const [isOpened, setIsOpened] = useState(false);
+  useEffect(() => {
+    if (!isOpened) close();
+  }, [isOpened]);
+  const onopen = () => {
+    setIsOpened(true);
   };
 
-  const { send } = useWebSocket({ url: WEBSOCKETS_URL, onmessage });
+  const [messages, setMessages] = useState<string[]>([]);
+  const onmessage = ({ data }: MessageEvent<string>) => {
+    const { type, text } = parseMessage(data);
 
-  const [inProgress, setInProgress] = useState(false);
+    if (type === MessageType.end) {
+      setIsOpened(false);
+    }
+
+    setMessages((prevMessages) => [...prevMessages, text]);
+  };
+
+  const { send, close, open } = useWebSocket({ onmessage, onopen });
+
   const onSettingsFormSubmit = (config: ServerConfig) => {
     const { username, password, protocol, remoteAddress } = config;
-    setInProgress(true);
+    open(WEBSOCKETS_URL);
     send(`install ${protocol} ${remoteAddress} ${username} ${password}`);
   };
   const onCancel = () => {
     // send('cancel');
-    setInProgress(false);
+    setIsOpened(false);
   };
 
   return (
@@ -67,7 +103,7 @@ export default function App() {
                 <SettingsForm
                   vpnProtocols={vpnProtocols}
                   onSubmit={onSettingsFormSubmit}
-                  inProgress={inProgress}
+                  inProgress={isOpened}
                   onCancel={onCancel}
                 />
                 <Spacing size="m" />
