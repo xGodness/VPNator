@@ -7,6 +7,7 @@ import os
 import sys
 
 from fastapi import WebSocket
+from starlette.websockets import WebSocketDisconnect
 
 from command_executor import SSHConfig, CommandExecutor, ExecutionException
 
@@ -27,11 +28,16 @@ class VPNType(Enum):
 class Server:
     async def endpoint(self, websocket: WebSocket):
         await websocket.accept()
-        while True:
-            data = await websocket.receive_text()
-            if data.startswith("install"):
-                args = data[8:].strip().split(" ")
-                await self.process_install(args=args, websocket=websocket)
+        try:
+            while True:
+                data = await websocket.receive_text()
+                if data.startswith("install"):
+                    args = data[8:].strip().split(" ")
+                    await self.process_install(args=args, websocket=websocket)
+        except WebSocketDisconnect:
+            logger.info("WebSocket client disconnected")
+        except Exception as e:
+            logger.error(f"Unexpected error in WebSocket endpoint: {e}", exc_info=True)
 
     # cmd format: install <vpn_type: ['openconnect', 'openvpn', 'outline']> <host> <username> <password> [account_username] [account_password]
     @staticmethod
@@ -39,15 +45,22 @@ class Server:
         try:
             vpn_type = VPNType(args[0])
         except ValueError:
-            await websocket.send_text(f"Неизвестный тип VPN: {args[0]}")
+            try:
+                await websocket.send_text(f"Неизвестный тип VPN: {args[0]}")
+            except WebSocketDisconnect:
+                logger.info("WebSocket disconnected")
             return
 
+        executor = None
         try:
             config = SSHConfig.create(host=args[1], username=args[2], password=args[3])
             executor = CommandExecutor(config=config)
             executor.connect()
         except ExecutionException as e:
-            await websocket.send_text(e.message)
+            try:
+                await websocket.send_text(e.message)
+            except WebSocketDisconnect:
+                logger.info("WebSocket disconnected")
             return
         
         try:
@@ -58,7 +71,11 @@ class Server:
                     if line.startswith(STATUS_REPORT_PREFIX):
                         report_msg = line.split(STATUS_REPORT_PREFIX)[1]
                         logger.info(report_msg)
-                        await websocket.send_text(report_msg)
+                        try:
+                            await websocket.send_text(report_msg)
+                        except WebSocketDisconnect:
+                            logger.info("WebSocket disconnected during status reporting")
+                            return
                         continue
                     if line.startswith("#") or line.isspace():
                         continue
@@ -68,8 +85,11 @@ class Server:
                         if len(args) < 6:
                             err_msg = "Не установлены требуемые параметры аккаунта для подключения к VPN: имя и пароль"
                             logger.error(err_msg)
-                            await websocket.send_text(err_msg)
-                            await websocket.send_text(COMPLETE)
+                            try:
+                                await websocket.send_text(err_msg)
+                                await websocket.send_text(COMPLETE)
+                            except WebSocketDisconnect:
+                                logger.info("WebSocket disconnected")
                             return
                         acc_username = args[4]
                         acc_password = args[5]
@@ -81,8 +101,11 @@ class Server:
                     if result.code != 0:
                         err_msg = f"Ошибка в процессе установки: " + result.stderr
                         logger.error(err_msg)
-                        await websocket.send_text(err_msg)
-                        await websocket.send_text(COMPLETE)
+                        try:
+                            await websocket.send_text(err_msg)
+                            await websocket.send_text(COMPLETE)
+                        except WebSocketDisconnect:
+                            logger.info("WebSocket disconnected during error reporting")
                         return
                     else:
                         logger.info(result.stdout)
@@ -91,15 +114,28 @@ class Server:
                             with open("client.ovpn" if vpn_type == VPNType.OPENVPN else "outline-key.txt", "w") as out:
                                 out.write(result.stdout)
 
-                await websocket.send_text(COMPLETE)
+                try:
+                    await websocket.send_text(COMPLETE)
+                except WebSocketDisconnect:
+                    logger.info("WebSocket disconnected before sending completion")
         except FileNotFoundError as e:
             logger.error(e)
-            await websocket.send_text("Такой протокол еще не поддержан")
-            await websocket.send_text(COMPLETE)
+            try:
+                await websocket.send_text("Такой протокол еще не поддержан")
+                await websocket.send_text(COMPLETE)
+            except WebSocketDisconnect:
+                logger.info("WebSocket disconnected")
             return
+        finally:
+            if executor is not None:
+                try:
+                    executor.shutdown()
+                except Exception as e:
+                    logger.warning(f"Error shutting down executor: {e}")
 
 
 def resource_path(relative_path):
     if hasattr(sys, '_MEIPASS'):
         return os.path.join(sys._MEIPASS, relative_path)
     return os.path.join(os.path.abspath("."), relative_path)
+
