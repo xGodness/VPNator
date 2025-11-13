@@ -46,37 +46,43 @@ class Server:
             await websocket.send_text(e.message)
             return
 
-        with open(f"scripts/{vpn_type.value}.sh", "r") as file:
-            for line in file:
-                line = line.strip()
-                if line.startswith(STATUS_REPORT_PREFIX):
-                    report_msg = line.split(STATUS_REPORT_PREFIX)[1]
-                    logger.info(report_msg)
-                    await websocket.send_text(report_msg)
-                    continue
-                if line.startswith("#") or line.isspace():
-                    continue
+        try:
+            with open(f"scripts/{vpn_type.value}.sh", "r") as file:
+                for line in file:
+                    line = line.strip()
+                    if line.startswith(STATUS_REPORT_PREFIX):
+                        report_msg = line.split(STATUS_REPORT_PREFIX)[1]
+                        logger.info(report_msg)
+                        await websocket.send_text(report_msg)
+                        continue
+                    if line.startswith("#") or line.isspace():
+                        continue
 
-                cmd = line
-                if line.endswith(SET_USER_VARS_SUFFIX):
-                    if len(args) < 6:
-                        err_msg = "Не установлены требуемые параметры аккаунта для подключения к VPN: имя и пароль"
+                    cmd = line
+                    if line.endswith(SET_USER_VARS_SUFFIX):
+                        if len(args) < 6:
+                            err_msg = "Не установлены требуемые параметры аккаунта для подключения к VPN: имя и пароль"
+                            logger.error(err_msg)
+                            await websocket.send_text(err_msg)
+                            await websocket.send_text(COMPLETE)
+                            return
+                        acc_username = args[4]
+                        acc_password = args[5]
+                        cmd = f"OCSERV_USER=\"{acc_username}\" OCSERV_PASS=\"{acc_password}\" {cmd}"
+
+                    result = await to_thread(executor.execute, cmd)
+                    if result.code != 0:
+                        err_msg = f"Ошибка в процессе установки: " + result.stderr
                         logger.error(err_msg)
                         await websocket.send_text(err_msg)
                         await websocket.send_text(COMPLETE)
                         return
-                    acc_username = args[4]
-                    acc_password = args[5]
-                    cmd = f"OCSERV_USER=\"{acc_username}\" OCSERV_PASS=\"{acc_password}\" {cmd}"
+                    else:
+                        logger.info(result.stdout)
 
-                result = await to_thread(executor.execute, cmd)
-                if result.code != 0:
-                    err_msg = f"Ошибка в процессе установки: " + result.stderr
-                    logger.error(err_msg)
-                    await websocket.send_text(err_msg)
-                    await websocket.send_text(COMPLETE)
-                    return
-                else:
-                    logger.info(result.stdout)
-
+                await websocket.send_text(COMPLETE)
+        except FileNotFoundError as e:
+            logger.error(e)
+            await websocket.send_text("Такой протокол еще не поддержан")
             await websocket.send_text(COMPLETE)
+            return

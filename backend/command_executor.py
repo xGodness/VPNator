@@ -31,7 +31,6 @@ class ExecutionException(Exception):
 
 class CommandExecutor:
     def __init__(self, config: SSHConfig):
-        logger.info(config)
         self.host = config.host
         self.username = config.username
         self.password = config.password
