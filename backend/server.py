@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 class VPNType(Enum):
     OPENCONNECT = "openconnect"
-    XRAY = "xray"
+    OPENVPN = "openvpn"
     OUTLINE = "outline"
 
 
@@ -29,7 +29,7 @@ class Server:
                 args = data[8:].strip().split(" ")
                 await self.process_install(args=args, websocket=websocket)
 
-    # cmd format: install <vpn_type: ['openconnect', 'xray', 'outline']> <host> <username> <password> [account_username] [account_password]
+    # cmd format: install <vpn_type: ['openconnect', 'openvpn', 'outline']> <host> <username> <password> [account_username] [account_password]
     @staticmethod
     async def process_install(args: List[str], websocket: WebSocket) -> None:
         try:

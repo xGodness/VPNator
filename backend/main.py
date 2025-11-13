@@ -18,13 +18,13 @@ logging.basicConfig(
 
 
 def main() -> FastAPI:
-    dists_path = os.environ['WEB_DISTS_PATH'] or "web/dist"
+    # dists_path = os.environ['WEB_DISTS_PATH'] or "web/dist"
 
     app = FastAPI()
     server = Server()
 
-    app.mount("/VPNator", StaticFiles(directory=dists_path))
-    app.mount("/", StaticFiles(directory=dists_path, html = True))
+    app.mount("/VPNator", StaticFiles(directory="web/dist"))
+    app.mount("/", StaticFiles(directory="web/dist", html = True))
 
     app.websocket("/ws")(server.endpoint)
     return app
