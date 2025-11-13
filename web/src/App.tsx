@@ -9,7 +9,7 @@ import {
   usePlatform,
   View,
 } from "@vkontakte/vkui";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { SettingsForm } from "./ui/SettingsForm/SettingsForm";
 import { useWebSocket } from "./modules/webSocket/useWebSocket";
@@ -33,15 +33,50 @@ const vpnProtocols = [
 
 const WEBSOCKETS_URL = import.meta.env.VITE_WS_URL;
 
+const enum MessageType {
+  info = "info",
+  end = "end",
+}
+interface ParsedMessage {
+  type: MessageType;
+  text: string;
+}
+
+const parseMessage = (message: string): ParsedMessage => {
+  if (message === "VPNATOR-COMPLETE") {
+    return {
+      type: MessageType.end,
+      text: "Настройка завершена",
+    };
+  }
+
+  return {
+    type: MessageType.info,
+    text: message,
+  };
+};
+
 export default function App() {
   const platform = usePlatform();
 
+  const [isOpened, setIsOpened] = useState(true);
+  useEffect(() => {
+    if (!isOpened) close();
+  }, [isOpened]);
+
   const [messages, setMessages] = useState<string[]>([]);
   const onmessage = ({ data }: MessageEvent<string>) => {
-    setMessages((prevMessages) => [...prevMessages, data]);
+    const { type, text } = parseMessage(data);
+
+    if (type === MessageType.end) {
+      setIsOpened(false);
+      setInProgress(false);
+    }
+
+    setMessages((prevMessages) => [...prevMessages, text]);
   };
 
-  const { send } = useWebSocket({ url: WEBSOCKETS_URL, onmessage });
+  const { send, close } = useWebSocket({ url: WEBSOCKETS_URL, onmessage });
 
   const [inProgress, setInProgress] = useState(false);
   const onSettingsFormSubmit = (config: ServerConfig) => {
