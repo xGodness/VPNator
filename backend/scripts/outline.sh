@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -e; . /etc/os-release; if [[ "$ID" != "ubuntu" && "$ID" != "debian" ]]; then echo "Error: This script only supports Ubuntu and Debian" >&2 && exit 1; fi
+if ! command -v sudo &> /dev/null; then if [ "$EUID" -eq 0 ]; then apt update > /dev/null 2>&1 && apt install -y sudo > /dev/null 2>&1; else echo "Error: sudo is not installed and script is not running as root. Please run as root to install sudo." >&2 && exit 1; fi; fi
 # VPNATOR-STATUS-REPORT Обновление пакетов...
 
 sudo apt update > /dev/null 2>&1
