@@ -17,7 +17,7 @@ import { useWebSocket } from "./modules/webSocket/useWebSocket";
 import { ServerMessages } from "./ui/ServerMessages/ServerMessages";
 import { ServerConfig } from "./modules/serverConfig/serverConfig.types";
 import YouTube from "react-youtube";
-import { Brainrot } from "./ui/Brainrot/Brainrot";
+import { BrainrotWidget } from "./ui/BrainrotWidget/BrainrotWidget";
 
 const vpnProtocols = [
   {
@@ -125,7 +125,7 @@ export default function App() {
                       />
                     </SplitCol>
                     <SplitCol width={700}>
-                      {isOpened && <Brainrot videoId="Pm83Hsgb49I" />}
+                      {isOpened && <BrainrotWidget videoId="Pm83Hsgb49I" />}
                     </SplitCol>
                   </SplitLayout>
                 </Card>
