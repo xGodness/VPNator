@@ -39,7 +39,7 @@ class Server:
             return
 
         try:
-            config = SSHConfig(host=args[1], username=args[2], password=args[3])
+            config = SSHConfig.create(host=args[1], username=args[2], password=args[3])
             executor = CommandExecutor(config=config)
             executor.connect()
         except ExecutionException as e:
@@ -86,3 +86,4 @@ class Server:
             await websocket.send_text("Такой протокол еще не поддержан")
             await websocket.send_text(COMPLETE)
             return
+
