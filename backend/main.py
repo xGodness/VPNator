@@ -7,6 +7,9 @@ from server import Server
 
 import os
 
+from dotenv import load_dotenv
+
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -18,15 +21,17 @@ logging.basicConfig(
 
 
 def main() -> FastAPI:
-    # dists_path = os.environ['WEB_DISTS_PATH'] or "web/dist"
+    load_dotenv()
+
+    dists_path = os.environ.get('WEB_DISTS_PATH') or "web/dist"
 
     app = FastAPI()
     server = Server()
 
     app.websocket("/ws")(server.endpoint)
 
-    app.mount("/VPNator", StaticFiles(directory="web/dist"))
-    app.mount("/", StaticFiles(directory="web/dist", html = True))
+    app.mount("/VPNator", StaticFiles(directory=dists_path))
+    app.mount("/", StaticFiles(directory=dists_path, html = True))
 
     return app
 

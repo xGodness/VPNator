@@ -10,5 +10,5 @@ backend: venv install
 build: venv install
 	mkdir -p dist
 	@cd web && npm install && npm run build
-	@cd backend && pyinstaller --onefile --add-data=scripts:scripts --add-data=../web/dist:web/dist --name vpnator_server main.py
+	@cd backend && pyinstaller --onefile --add-data=scripts:scripts --name vpnator_server main.py
 	tar -czf dist/vpnator.tar.gz web/dist -C backend/dist vpnator_server 
