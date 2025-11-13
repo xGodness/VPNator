@@ -1,5 +1,6 @@
 import {
   AppRoot,
+  Card,
   Panel,
   PanelHeader,
   Root,
@@ -15,6 +16,8 @@ import { SettingsForm } from "./ui/SettingsForm/SettingsForm";
 import { useWebSocket } from "./modules/webSocket/useWebSocket";
 import { ServerMessages } from "./ui/ServerMessages/ServerMessages";
 import { ServerConfig } from "./modules/serverConfig/serverConfig.types";
+import YouTube from "react-youtube";
+import { Brainrot } from "./ui/Brainrot/Brainrot";
 
 const vpnProtocols = [
   {
@@ -111,12 +114,21 @@ export default function App() {
             <View id="form-view" activePanel="form-panel">
               <Panel id="form-panel">
                 <PanelHeader>VPNator</PanelHeader>
-                <SettingsForm
-                  vpnProtocols={vpnProtocols}
-                  onSubmit={onSettingsFormSubmit}
-                  inProgress={isOpened}
-                  onCancel={onCancel}
-                />
+                <Card mode="shadow">
+                  <SplitLayout>
+                    <SplitCol width={700}>
+                      <SettingsForm
+                        vpnProtocols={vpnProtocols}
+                        onSubmit={onSettingsFormSubmit}
+                        inProgress={isOpened}
+                        onCancel={onCancel}
+                      />
+                    </SplitCol>
+                    <SplitCol width={700}>
+                      {isOpened && <Brainrot videoId="Pm83Hsgb49I" />}
+                    </SplitCol>
+                  </SplitLayout>
+                </Card>
                 <Spacing size="m" />
                 {messages.length > 0 && <ServerMessages messages={messages} />}
               </Panel>

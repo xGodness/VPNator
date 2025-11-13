@@ -68,7 +68,7 @@ export const SettingsForm = ({
   };
 
   return (
-    <Card mode="shadow">
+    <Box>
       <Box padding="2xl">
         <Title level="2">Настройка конфига</Title>
       </Box>
@@ -153,6 +153,6 @@ export const SettingsForm = ({
           </ButtonGroup>
         </Box>
       </Flex>
-    </Card>
+    </Box>
   );
 };
