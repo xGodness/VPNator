@@ -87,7 +87,6 @@ class Server:
                             logger.error(err_msg)
                             try:
                                 await websocket.send_text(err_msg)
-                                await websocket.send_text(COMPLETE)
                             except WebSocketDisconnect:
                                 logger.info("WebSocket disconnected")
                             return
@@ -103,7 +102,6 @@ class Server:
                         logger.error(err_msg)
                         try:
                             await websocket.send_text(err_msg)
-                            await websocket.send_text(COMPLETE)
                         except WebSocketDisconnect:
                             logger.info("WebSocket disconnected during error reporting")
                         return
@@ -113,20 +111,19 @@ class Server:
                             save_ovpn = False
                             with open("client.ovpn" if vpn_type == VPNType.OPENVPN else "outline-key.txt", "w") as out:
                                 out.write(result.stdout)
-
-                try:
-                    await websocket.send_text(COMPLETE)
-                except WebSocketDisconnect:
-                    logger.info("WebSocket disconnected before sending completion")
         except FileNotFoundError as e:
             logger.error(e)
             try:
                 await websocket.send_text("Такой протокол еще не поддержан")
-                await websocket.send_text(COMPLETE)
             except WebSocketDisconnect:
                 logger.info("WebSocket disconnected")
             return
         finally:
+            try:
+                await websocket.send_text(COMPLETE)
+            except WebSocketDisconnect:
+                logger.info("WebSocket disconnected before sending completion")
+
             if executor is not None:
                 try:
                     executor.shutdown()
