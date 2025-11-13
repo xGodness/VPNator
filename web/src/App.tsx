@@ -26,8 +26,8 @@ const vpnProtocols = [
     label: "OpenConnect",
   },
   {
-    value: "xray",
-    label: "XRay",
+    value: "openvpn",
+    label: "OpenVPN",
   },
 ];
 

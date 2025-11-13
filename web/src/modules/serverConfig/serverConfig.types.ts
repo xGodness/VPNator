@@ -1,7 +1,7 @@
 export const enum VpnProtocol {
   outline = "outline",
   openconnect = "openconnect",
-  xray = "xray",
+  openvpn = "openvpn"
 }
 
 export interface ServerConfig {

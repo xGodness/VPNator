@@ -3,6 +3,9 @@ from asyncio import to_thread
 from enum import Enum
 from typing import List
 
+import os
+import sys
+
 from fastapi import WebSocket
 
 from command_executor import SSHConfig, CommandExecutor, ExecutionException
@@ -30,7 +33,7 @@ class Server:
                 args = data[8:].strip().split(" ")
                 await self.process_install(args=args, websocket=websocket)
 
-    # cmd format: install <vpn_type: ['openconnect', 'xray', 'outline']> <host> <username> <password> [account_username] [account_password]
+    # cmd format: install <vpn_type: ['openconnect', 'openvpn', 'outline']> <host> <username> <password> [account_username] [account_password]
     @staticmethod
     async def process_install(args: List[str], websocket: WebSocket) -> None:
         try:
@@ -46,9 +49,9 @@ class Server:
         except ExecutionException as e:
             await websocket.send_text(e.message)
             return
-
+        
         try:
-            with open(f"scripts/{vpn_type.value}.sh", "r") as file:
+            with open(resource_path(f"scripts/{vpn_type.value}.sh"), "r") as file:
                 save_ovpn = False
                 for line in file:
                     line = line.strip()
@@ -95,3 +98,8 @@ class Server:
             await websocket.send_text(COMPLETE)
             return
 
+
+def resource_path(relative_path):
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
