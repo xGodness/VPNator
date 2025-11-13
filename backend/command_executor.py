@@ -1,3 +1,4 @@
+import ipaddress
 import logging
 from dataclasses import dataclass
 from typing import Mapping
@@ -14,6 +15,34 @@ class SSHConfig:
     username: str
     password: str
     port: int = 22
+
+    @classmethod
+    def create(cls, host: str, username: str, password: str) -> "SSHConfig":
+        """
+        Create SSHConfig from host string.
+        If host is valid IPv4, uses default port 22.
+        If host is in format 'IPv4:port', parses the port.
+        """
+        port = 22
+        parsed_host = host
+
+        if ":" in host:
+            parts = host.rsplit(":", 1)
+            if len(parts) == 2:
+                host_part, port_part = parts
+                try:
+                    port = int(port_part)
+                    parsed_host = host_part
+                except ValueError:
+                    parsed_host = host
+                    port = 22
+
+        try:
+            ipaddress.IPv4Address(parsed_host)
+        except ValueError:
+            pass
+
+        return cls(host=parsed_host, username=username, password=password, port=port)
 
 
 @dataclass
@@ -68,3 +97,4 @@ def _handle_exception(e: Exception, message: str | None = None) -> None:
     if message is not None:
         raise ExecutionException(message)
     raise ExecutionException()
+
