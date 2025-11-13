@@ -4,3 +4,4 @@
 **/*.pyc
 **/*.log
 backend/scripts/tmp
+backend/build

@@ -5,7 +5,7 @@ from typing import List
 
 from fastapi import WebSocket
 
-from .command_executor import SSHConfig, CommandExecutor, ExecutionException
+from command_executor import SSHConfig, CommandExecutor, ExecutionException
 
 STATUS_REPORT_PREFIX = "# VPNATOR-STATUS-REPORT "
 SET_USER_VARS_SUFFIX = "# VPNATOR-SET-USER-VARS"
@@ -46,7 +46,7 @@ class Server:
             await websocket.send_text(e.message)
             return
 
-        with open(f"backend/scripts/{vpn_type.value}.sh", "r") as file:
+        with open(f"scripts/{vpn_type.value}.sh", "r") as file:
             for line in file:
                 line = line.strip()
                 if line.startswith(STATUS_REPORT_PREFIX):
