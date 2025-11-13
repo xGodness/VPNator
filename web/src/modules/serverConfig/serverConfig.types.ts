@@ -9,4 +9,6 @@ export interface ServerConfig {
   username: string;
   password: string;
   protocol: VpnProtocol;
+  vpnUsername?: string;
+  vpnPassword?: string;
 }

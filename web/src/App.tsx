@@ -81,9 +81,20 @@ export default function App() {
   const { send, close, open } = useWebSocket({ onmessage, onopen });
 
   const onSettingsFormSubmit = (config: ServerConfig) => {
-    const { username, password, protocol, remoteAddress } = config;
+    const {
+      username,
+      password,
+      protocol,
+      remoteAddress,
+      vpnUsername,
+      vpnPassword,
+    } = config;
     open(WEBSOCKETS_URL);
-    send(`install ${protocol} ${remoteAddress} ${username} ${password}`);
+    send(
+      `install ${protocol} ${remoteAddress} ${username} ${password}${
+        vpnUsername && " " + vpnUsername
+      }${vpnPassword && " " + vpnPassword}`
+    );
   };
   const onCancel = () => {
     // send('cancel');
