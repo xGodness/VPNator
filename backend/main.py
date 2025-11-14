@@ -1,11 +1,13 @@
 import logging
+import webbrowser
+import os
+
+import threading
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from server import Server
-
-import os
 
 from dotenv import load_dotenv
 
@@ -20,12 +22,23 @@ logging.basicConfig(
 )
 
 
+def open_browser():
+      webbrowser.open_new("http://127.0.0.1:8000")
+
+
+app = FastAPI()
+
+
+@app.on_event("startup")
+def on_startup():
+    threading.Thread(target=open_browser, daemon=True).start()
+
+
 def main() -> FastAPI:
     load_dotenv()
 
     dists_path = os.environ.get('WEB_DISTS_PATH') or "web/dist"
 
-    app = FastAPI()
     server = Server()
 
     app.websocket("/ws")(server.endpoint)
